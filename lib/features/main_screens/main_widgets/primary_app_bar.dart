@@ -4,10 +4,12 @@ import '../../../core/styling/app_styles.dart';
 
 class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
+  final bool automaticallyImplyLeading;
 
   const PrimaryAppBar({
     super.key,
     required this.title,
+    this.automaticallyImplyLeading = true,
   });
 
   @override
@@ -16,6 +18,7 @@ class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      automaticallyImplyLeading: automaticallyImplyLeading,
       title: Text(
         title,
         style: AppStyles.mainTextStyle.copyWith(
@@ -24,11 +27,9 @@ class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       backgroundColor: AppColors.secondaryColor,
-      elevation: 0,
+      elevation: 2.0, // إضافة ظل خفيف لتحسين الشكل
       centerTitle: true,
-      iconTheme: IconThemeData(
-        color: AppColors.blackColor,
-      ),
+      iconTheme: IconThemeData(color: AppColors.blackColor),
     );
   }
 }

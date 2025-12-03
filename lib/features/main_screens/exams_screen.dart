@@ -9,11 +9,7 @@ class ExamsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const PrimaryAppBar(title: 'الاختبارات'),
-      backgroundColor: AppColors.secondaryColor,
-      body: const Center(
-        child: Text('هنا هتضيف الامتحانات / الكويزات'),
-      ),
+      body: const Center(child: Text('هنا هتضيف الامتحانات / الكويزات')),
     );
   }
 }
