@@ -59,7 +59,7 @@ class _MainScreenState extends State<MainScreen> {
             backgroundColor: AppColors.secondaryColor,
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
-            label: 'الرئيسية',
+            label: 'الdddddddرئيسية',
           ),
           BottomNavigationBarItem(
             backgroundColor: AppColors.secondaryColor,
