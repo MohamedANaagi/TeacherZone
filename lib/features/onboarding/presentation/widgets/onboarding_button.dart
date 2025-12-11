@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/styling/app_color.dart';
-import '../../../core/styling/app_styles.dart';
+import '../../../../../core/styling/app_color.dart';
+import '../../../../../core/styling/app_styles.dart';
 
 class OnboardingButton extends StatelessWidget {
   final bool isLastPage;
@@ -36,3 +36,4 @@ class OnboardingButton extends StatelessWidget {
     );
   }
 }
+

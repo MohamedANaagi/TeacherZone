@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/styling/app_color.dart';
-import '../../../core/styling/app_styles.dart';
+import '../../../../../core/styling/app_color.dart';
+import '../../../../../core/styling/app_styles.dart';
 
 class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -22,14 +22,15 @@ class PrimaryAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text(
         title,
         style: AppStyles.mainTextStyle.copyWith(
-          color: AppColors.blackColor,
+          color: AppColors.textPrimary,
           fontSize: 20,
         ),
       ),
       backgroundColor: AppColors.secondaryColor,
       elevation: 2.0, // إضافة ظل خفيف لتحسين الشكل
       centerTitle: true,
-      iconTheme: IconThemeData(color: AppColors.blackColor),
+      iconTheme: const IconThemeData(color: AppColors.textPrimary),
     );
   }
 }
+

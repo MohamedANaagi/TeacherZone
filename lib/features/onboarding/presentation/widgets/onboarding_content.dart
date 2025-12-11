@@ -1,8 +1,6 @@
-
-
 import 'package:flutter/material.dart';
-import '../../../core/styling/app_color.dart';
-import '../../../core/styling/app_styles.dart';
+import '../../../../../core/styling/app_color.dart';
+import '../../../../../core/styling/app_styles.dart';
 
 class OnboardingContent extends StatelessWidget {
   final IconData icon;
@@ -53,7 +51,7 @@ class OnboardingContent extends StatelessWidget {
             subtitle,
             textAlign: TextAlign.center,
             style: AppStyles.black16w500Style.copyWith(
-              color: AppColors.greyColor,
+              color: AppColors.textSecondary,
               fontSize: 15,
               height: 1.5,
             ),
@@ -63,3 +61,4 @@ class OnboardingContent extends StatelessWidget {
     );
   }
 }
+

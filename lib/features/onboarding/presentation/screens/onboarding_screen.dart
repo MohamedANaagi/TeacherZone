@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:class_code/core/router/app_routers.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/styling/app_color.dart';
-import '../../../core/styling/app_styles.dart';
-import '../widgets/on_boading_widgets/onboarding_button.dart';
-import '../widgets/on_boading_widgets/onboarding_content.dart';
-
-
+import '../../../../../core/styling/app_color.dart';
+import '../../../../../core/styling/app_styles.dart';
+import '../widgets/onboarding_button.dart';
+import '../widgets/onboarding_content.dart';
 
 class OnBoardingScreen extends StatefulWidget {
   const OnBoardingScreen({super.key});
@@ -23,18 +21,17 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
   final List<Map<String, String>> pages = [
     {
       "title": "مرحبًا في TeacherZone",
-      "subtitle":
-      "منصتك لمتابعة دروس المدرّس في مكان واحد، بسهولة وتنظيم."
+      "subtitle": "منصتك لمتابعة دروس المدرّس في مكان واحد، بسهولة وتنظيم.",
     },
     {
       "title": "محتوى تعليمي منظم",
       "subtitle":
-      "دروس فيديو مرتّبة بالترتيب الصحيح، مع شرح واضح و تركيز على أهم النقاط."
+          "دروس فيديو مرتّبة بالترتيب الصحيح، مع شرح واضح و تركيز على أهم النقاط.",
     },
     {
       "title": "الدخول بالكود",
       "subtitle":
-      "المدرّس يقدّم لك كود خاص، تدخله وتفتح كل محتوى الكورس المتاح لك."
+          "المدرّس يقدّم لك كود خاص، تدخله وتفتح كل محتوى الكورس المتاح لك.",
     },
   ];
 
@@ -54,9 +51,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
                 },
                 child: Text(
                   'تخطي',
-                  style: AppStyles.grey12MediumStyle.copyWith(
-                    fontSize: 14,
-                  ),
+                  style: AppStyles.grey12MediumStyle.copyWith(fontSize: 14),
                 ),
               ),
             ),
@@ -85,14 +80,14 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Dots
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 pages.length,
-                    (index) => AnimatedContainer(
+                (index) => AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 4),
                   width: currentIndex == index ? 20 : 8,
@@ -100,14 +95,14 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
                   decoration: BoxDecoration(
                     color: currentIndex == index
                         ? AppColors.primaryColor
-                        : AppColors.greyColor.withOpacity(0.4),
+                        : AppColors.textSecondary.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // زرار التالي/ابدأ الآن
             Padding(
@@ -127,7 +122,7 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
           ],
         ),
       ),

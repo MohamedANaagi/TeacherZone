@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'core/styling/app_color.dart';
+import '../../../../../core/styling/app_color.dart';
 
 // Screens
-import 'features/main_screens/courses_screen.dart';
-import 'features/main_screens/exams_screen.dart';
-import 'features/main_screens/home_screen.dart';
-import 'features/main_screens/profile_screen.dart';
-import 'features/main_screens/main_widgets/primary_app_bar.dart';
+import 'home_screen.dart';
+import 'courses_screen.dart';
+import 'exams_screen.dart';
+import 'profile_screen.dart';
+import '../widgets/primary_app_bar.dart';
 
 class MainScreen extends StatefulWidget {
   MainScreen({super.key});
@@ -44,7 +44,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: AppColors.primaryColor,
-        unselectedItemColor: AppColors.greyColor,
+        unselectedItemColor: AppColors.textSecondary,
         // إخفاء النصوص للعناصر غير المحددة لمظهر أنظف
         showUnselectedLabels: false,
         type: BottomNavigationBarType.shifting, // يسمح بتأثيرات أجمل
@@ -59,7 +59,7 @@ class _MainScreenState extends State<MainScreen> {
             backgroundColor: AppColors.secondaryColor,
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
-            label: 'الdddddddرئيسية',
+            label: 'الرئيسية',
           ),
           BottomNavigationBarItem(
             backgroundColor: AppColors.secondaryColor,
@@ -84,3 +84,4 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
+
