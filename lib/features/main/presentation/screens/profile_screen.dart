@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/cubit/user_cubit.dart';
 import '../../../../../core/cubit/user_state.dart';
+import '../../../../../core/router/app_routers.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -26,7 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         imageQuality: 85,
       );
 
-      if (image != null) {
+      if (image != null && mounted) {
         final userCubit = context.read<UserCubit>();
         await userCubit.updateUser(imagePath: image.path);
       }
@@ -42,6 +44,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserCubit, UserState>(
+      buildWhen: (previous, current) =>
+          previous.name != current.name ||
+          previous.email != current.email ||
+          previous.imagePath != current.imagePath ||
+          previous.subscriptionEndDate != current.subscriptionEndDate,
       builder: (context, state) {
         return SingleChildScrollView(
           child: Padding(
@@ -66,7 +73,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primaryColor.withValues(alpha: 0.3),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.3,
+                              ),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
                             ),
@@ -130,75 +139,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // الاسم
-                      if (state.name != null) ...[
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person_outline,
-                              color: AppColors.primaryColor,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'الاسم',
-                                    style: AppStyles.grey12MediumStyle.copyWith(
-                                      fontSize: 12,
-                                    ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            color: AppColors.primaryColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'الاسم',
+                                  style: AppStyles.grey12MediumStyle.copyWith(
+                                    fontSize: 12,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    state.name!,
-                                    style: AppStyles.mainTextStyle.copyWith(
-                                      fontSize: 18,
-                                      color: AppColors.textPrimary,
-                                    ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  state.name ?? 'غير متوفر',
+                                  style: AppStyles.mainTextStyle.copyWith(
+                                    fontSize: 18,
+                                    color: state.name != null
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
 
                       // الإيميل
-                      if (state.email != null) ...[
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.email_outlined,
-                              color: AppColors.primaryColor,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'البريد الإلكتروني',
-                                    style: AppStyles.grey12MediumStyle.copyWith(
-                                      fontSize: 12,
-                                    ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.email_outlined,
+                            color: AppColors.primaryColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'البريد الإلكتروني',
+                                  style: AppStyles.grey12MediumStyle.copyWith(
+                                    fontSize: 12,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    state.email!,
-                                    style: AppStyles.black16w500Style.copyWith(
-                                      fontSize: 16,
-                                    ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  state.email ?? 'غير متوفر',
+                                  style: AppStyles.black16w500Style.copyWith(
+                                    fontSize: 16,
+                                    color: state.email != null
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
 
                       // الأيام المتبقية
                       Container(
@@ -227,10 +237,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${state.remainingDays} يوم',
+                                    state.remainingDays > 0
+                                        ? '${state.remainingDays} يوم'
+                                        : 'لا يوجد اشتراك نشط',
                                     style: AppStyles.mainTextStyle.copyWith(
                                       fontSize: 20,
-                                      color: AppColors.primaryColor,
+                                      color: state.remainingDays > 0
+                                          ? AppColors.primaryColor
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -251,12 +265,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 50,
                   child: OutlinedButton(
                     onPressed: () async {
+                      if (!mounted) return;
                       final userCubit = context.read<UserCubit>();
                       await userCubit.clearUserData();
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('تم تسجيل الخروج')),
                         );
+                        // إعادة التوجيه لصفحة تسجيل الدخول
+                        context.go(AppRouters.codeInputScreen);
                       }
                     },
                     style: OutlinedButton.styleFrom(
@@ -285,11 +302,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildDefaultAvatar() {
     return Container(
       color: AppColors.primaryColor.withValues(alpha: 0.1),
-      child: Icon(
-        Icons.person,
-        size: 60,
-        color: AppColors.primaryColor,
-      ),
+      child: Icon(Icons.person, size: 60, color: AppColors.primaryColor),
     );
   }
 }

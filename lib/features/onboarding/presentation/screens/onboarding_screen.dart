@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:class_code/core/router/app_routers.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../../core/router/app_routers.dart';
 
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../../../core/services/onboarding_service.dart';
 import '../widgets/onboarding_button.dart';
 import '../widgets/onboarding_content.dart';
 
@@ -46,8 +47,12 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () {
-                  context.go(AppRouters.codeInputScreen);
+                onPressed: () async {
+                  // حفظ حالة إكمال الـ Onboarding
+                  await OnboardingService.setOnboardingCompleted();
+                  if (mounted) {
+                    context.go(AppRouters.codeInputScreen);
+                  }
                 },
                 child: Text(
                   'تخطي',
@@ -109,9 +114,13 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: OnboardingButton(
                 isLastPage: currentIndex == pages.length - 1,
-                onPressed: () {
+                onPressed: () async {
                   if (currentIndex == pages.length - 1) {
-                    context.go(AppRouters.codeInputScreen);
+                    // حفظ حالة إكمال الـ Onboarding
+                    await OnboardingService.setOnboardingCompleted();
+                    if (mounted) {
+                      context.go(AppRouters.codeInputScreen);
+                    }
                   } else {
                     _pageController.nextPage(
                       duration: const Duration(milliseconds: 400),

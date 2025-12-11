@@ -79,8 +79,11 @@ class ExamsScreen extends StatelessWidget {
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: exams.length,
+              cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
               itemBuilder: (context, index) {
-                return ExamCardWidget(exam: exams[index]);
+                return RepaintBoundary(
+                  child: ExamCardWidget(exam: exams[index]),
+                );
               },
             ),
     );

@@ -5,12 +5,14 @@ class UserState extends Equatable {
   final String? email;
   final String? imagePath;
   final DateTime? subscriptionEndDate;
+  final bool isLoggedIn;
 
   const UserState({
     this.name,
     this.email,
     this.imagePath,
     this.subscriptionEndDate,
+    this.isLoggedIn = false,
   });
 
   /// حساب الأيام المتبقية على الاشتراك
@@ -27,6 +29,7 @@ class UserState extends Equatable {
     String? email,
     String? imagePath,
     DateTime? subscriptionEndDate,
+    bool? isLoggedIn,
     bool? clearName,
     bool? clearEmail,
     bool? clearImagePath,
@@ -39,10 +42,16 @@ class UserState extends Equatable {
       subscriptionEndDate: clearSubscriptionEndDate == true
           ? null
           : (subscriptionEndDate ?? this.subscriptionEndDate),
+      isLoggedIn: isLoggedIn != null ? isLoggedIn : this.isLoggedIn,
     );
   }
 
   @override
-  List<Object?> get props => [name, email, imagePath, subscriptionEndDate];
+  List<Object?> get props => [
+    name,
+    email,
+    imagePath,
+    subscriptionEndDate,
+    isLoggedIn,
+  ];
 }
-

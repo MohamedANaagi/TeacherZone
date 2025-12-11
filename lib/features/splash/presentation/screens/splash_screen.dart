@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
+import '../../../../../core/services/onboarding_service.dart';
+import '../../../../../core/cubit/user_cubit.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -16,7 +19,7 @@ class _StartScreenState extends State<StartScreen>
   late AnimationController _mainController;
   late AnimationController _pulseController;
   late AnimationController _particleController;
-  
+
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _rotationAnimation;
@@ -46,58 +49,83 @@ class _StartScreenState extends State<StartScreen>
     )..repeat();
 
     // Scale Animation
-    _scaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      ),
+    );
 
     // Fade Animation
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
+      ),
+    );
 
     // Rotation Animation
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.1,
-    ).animate(CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-    ));
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.1).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+      ),
+    );
 
     // Pulse Animation
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     // Particle Animation
-    _particleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _particleController,
-      curve: Curves.linear,
-    ));
+    _particleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _particleController, curve: Curves.linear),
+    );
 
     // Start main animation
     _mainController.forward();
 
-    // بعد 3.5 ثانية الانتقال للشاشة التالية
-    Future.delayed(const Duration(milliseconds: 3500), () {
-      if (!mounted) return;
-      context.go(AppRouters.onBoardingScreen);
-    });
+    // تحميل بيانات المستخدم ثم الانتقال
+    _navigateAfterDelay();
+  }
+
+  Future<void> _navigateAfterDelay() async {
+    // انتظار تحميل البيانات
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (!mounted) return;
+
+    final userCubit = context.read<UserCubit>();
+    await userCubit.loadUserData();
+
+    // بعد 3.5 ثانية من بدء التطبيق، التحقق من حالة تسجيل الدخول
+    await Future.delayed(const Duration(milliseconds: 3400));
+    if (!mounted) return;
+
+    final isLoggedIn = userCubit.state.isLoggedIn;
+    debugPrint('حالة تسجيل الدخول في Splash: $isLoggedIn');
+
+    if (isLoggedIn) {
+      // إذا كان المستخدم مسجل دخول، الانتقال للشاشة الرئيسية
+      if (mounted) {
+        context.go(AppRouters.mainScreen);
+      }
+      return;
+    }
+
+    // التحقق من إذا كان تم عرض الـ Onboarding من قبل
+    final isCompleted = await OnboardingService.isOnboardingCompleted();
+
+    if (isCompleted) {
+      // إذا تم عرضها من قبل، الانتقال مباشرة لشاشة تسجيل الدخول
+      if (mounted) {
+        context.go(AppRouters.codeInputScreen);
+      }
+    } else {
+      // إذا لم يتم عرضها، الانتقال لشاشة الـ Onboarding
+      if (mounted) {
+        context.go(AppRouters.onBoardingScreen);
+      }
+    }
   }
 
   @override
@@ -116,7 +144,7 @@ class _StartScreenState extends State<StartScreen>
         children: [
           // Animated Background Circles
           ...List.generate(5, (index) => _buildAnimatedCircle(index)),
-          
+
           // Main Content
           Center(
             child: Column(
@@ -133,7 +161,9 @@ class _StartScreenState extends State<StartScreen>
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.secondaryColor.withValues(alpha: 0.2),
+                          color: AppColors.secondaryColor.withValues(
+                            alpha: 0.2,
+                          ),
                           border: Border.all(
                             color: AppColors.secondaryColor,
                             width: 3,
@@ -148,9 +178,9 @@ class _StartScreenState extends State<StartScreen>
                     );
                   },
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 // Text with multiple animations
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -170,7 +200,9 @@ class _StartScreenState extends State<StartScreen>
                               letterSpacing: 2,
                               shadows: [
                                 Shadow(
-                                  color: AppColors.secondaryColor.withValues(alpha: 0.5),
+                                  color: AppColors.secondaryColor.withValues(
+                                    alpha: 0.5,
+                                  ),
                                   blurRadius: 20,
                                   offset: const Offset(0, 0),
                                 ),
@@ -182,17 +214,21 @@ class _StartScreenState extends State<StartScreen>
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 // Loading indicator
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: SizedBox(
                     width: 200,
                     child: LinearProgressIndicator(
-                      backgroundColor: AppColors.secondaryColor.withValues(alpha: 0.2),
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondaryColor),
+                      backgroundColor: AppColors.secondaryColor.withValues(
+                        alpha: 0.2,
+                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.secondaryColor,
+                      ),
                       minHeight: 3,
                     ),
                   ),
@@ -215,13 +251,13 @@ class _StartScreenState extends State<StartScreen>
       const Alignment(0.6, 0.7),
       const Alignment(0.0, -0.3),
     ];
-    
+
     return AnimatedBuilder(
       animation: _particleAnimation,
       builder: (context, child) {
         final offset = (index * 0.2) % 1.0;
         final animationValue = (_particleAnimation.value + offset) % 1.0;
-        
+
         return Positioned.fill(
           child: Align(
             alignment: positions[index],
@@ -245,4 +281,3 @@ class _StartScreenState extends State<StartScreen>
     );
   }
 }
-

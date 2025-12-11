@@ -86,8 +86,14 @@ class CoursesScreen extends StatelessWidget {
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: CoursesScreen.courses.length,
+              cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
               itemBuilder: (context, index) {
-                return _buildCourseCard(context, CoursesScreen.courses[index]);
+                return RepaintBoundary(
+                  child: _buildCourseCard(
+                    context,
+                    CoursesScreen.courses[index],
+                  ),
+                );
               },
             ),
     );

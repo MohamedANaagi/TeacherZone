@@ -118,47 +118,49 @@ class _ExamQuizScreenState extends State<ExamQuizScreen> {
         ),
       ),
       body: isSubmitted
-          ? _buildResultScreen(color)
+          ? RepaintBoundary(child: _buildResultScreen(color))
           : Column(
               children: [
                 // معلومات الاختبار
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: AppColors.secondaryColor,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.access_time, color: color, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'السؤال ${currentQuestionIndex + 1} من $totalQuestions',
+                RepaintBoundary(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    color: AppColors.secondaryColor,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.access_time, color: color, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'السؤال ${currentQuestionIndex + 1} من $totalQuestions',
+                              style: AppStyles.subHeadingStyle.copyWith(
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${(progress * 100).toInt()}%',
                             style: AppStyles.subHeadingStyle.copyWith(
                               fontSize: 14,
+                              color: color,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
                         ),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${(progress * 100).toInt()}%',
-                          style: AppStyles.subHeadingStyle.copyWith(
-                            fontSize: 14,
-                            color: color,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 // السؤال
@@ -169,27 +171,29 @@ class _ExamQuizScreenState extends State<ExamQuizScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // نص السؤال
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondaryColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.borderColor),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.shadowColor,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                        RepaintBoundary(
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondaryColor,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.borderColor),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.shadowColor,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              questions[currentQuestionIndex]['question']
+                                  as String,
+                              style: AppStyles.subHeadingStyle.copyWith(
+                                fontSize: 18,
+                                height: 1.5,
                               ),
-                            ],
-                          ),
-                          child: Text(
-                            questions[currentQuestionIndex]['question']
-                                as String,
-                            style: AppStyles.subHeadingStyle.copyWith(
-                              fontSize: 18,
-                              height: 1.5,
                             ),
                           ),
                         ),
@@ -198,10 +202,12 @@ class _ExamQuizScreenState extends State<ExamQuizScreen> {
                         ...List.generate(
                           (questions[currentQuestionIndex]['answers'] as List)
                               .length,
-                          (index) => _buildAnswerOption(
-                            index,
-                            color,
-                            currentQuestionIndex,
+                          (index) => RepaintBoundary(
+                            child: _buildAnswerOption(
+                              index,
+                              color,
+                              currentQuestionIndex,
+                            ),
                           ),
                         ),
                       ],

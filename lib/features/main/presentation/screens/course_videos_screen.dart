@@ -346,12 +346,14 @@ class CourseVideosScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   // قائمة الفيديوهات
                   ...videos.map(
-                    (video) => VideoItemWidget(
-                      video: video,
-                      courseColor: color,
-                      onTap: () {
-                        _showVideoDialog(context, video, color);
-                      },
+                    (video) => RepaintBoundary(
+                      child: VideoItemWidget(
+                        video: video,
+                        courseColor: color,
+                        onTap: () {
+                          _showVideoDialog(context, video, color);
+                        },
+                      ),
                     ),
                   ),
                 ],
