@@ -17,10 +17,7 @@ class OnboardingContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 32.0,
-        vertical: 16,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -31,11 +28,7 @@ class OnboardingContent extends StatelessWidget {
               color: AppColors.primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(
-              icon,
-              size: 60,
-              color: AppColors.primaryColor,
-            ),
+            child: Icon(icon, size: 60, color: AppColors.primaryColor),
           ),
           const SizedBox(height: 40),
           Text(
@@ -61,4 +54,3 @@ class OnboardingContent extends StatelessWidget {
     );
   }
 }
-

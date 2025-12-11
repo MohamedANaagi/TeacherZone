@@ -18,7 +18,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '20 ساعة',
       'progress': 60,
       'image': 'math',
-      'color': 0xFF6366F1,
+      'color': AppColors.courseColor.value,
     },
     {
       'id': '2',
@@ -29,7 +29,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '25 ساعة',
       'progress': 30,
       'image': 'math',
-      'color': 0xFF8B5CF6,
+      'color': AppColors.courseColorLight.value,
     },
     {
       'id': '3',
@@ -40,7 +40,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '22 ساعة',
       'progress': 0,
       'image': 'math',
-      'color': 0xFF10B981,
+      'color': AppColors.courseColorDark.value,
     },
     {
       'id': '4',
@@ -51,7 +51,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '15 ساعة',
       'progress': 45,
       'image': 'math',
-      'color': 0xFF3B82F6,
+      'color': AppColors.courseColor.value,
     },
     {
       'id': '5',
@@ -62,7 +62,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '18 ساعة',
       'progress': 0,
       'image': 'math',
-      'color': 0xFFF59E0B,
+      'color': AppColors.courseColorLight.value,
     },
     {
       'id': '6',
@@ -73,7 +73,7 @@ class CoursesScreen extends StatelessWidget {
       'duration': '12 ساعة',
       'progress': 0,
       'image': 'math',
-      'color': 0xFFEF4444,
+      'color': AppColors.courseColorDark.value,
     },
   ];
 
