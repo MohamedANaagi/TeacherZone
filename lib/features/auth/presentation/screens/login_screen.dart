@@ -151,7 +151,7 @@ class _CodeInputScreenState extends State<CodeInputScreen>
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(child: Text(e.message)),
               ],
             ),
