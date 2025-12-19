@@ -1,7 +1,7 @@
 import '../../domain/entities/user.dart';
 
 /// User Model - Data Layer
-/// يمثل البيانات القادمة من Firebase أو Database
+/// يمثل البيانات القادمة من API أو Database
 class UserModel extends User {
   UserModel({
     required super.id,
@@ -15,12 +15,12 @@ class UserModel extends User {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     DateTime? subscriptionEndDate;
 
-    // معالجة Timestamp من Firestore
+    // معالجة Timestamp من JSON
     if (json['subscriptionEndDate'] != null) {
       if (json['subscriptionEndDate'] is DateTime) {
         subscriptionEndDate = json['subscriptionEndDate'] as DateTime;
       } else if (json['subscriptionEndDate'] is Map) {
-        // Firestore Timestamp
+        // Timestamp object (seconds/milliseconds)
         final timestamp = json['subscriptionEndDate'];
         if (timestamp['seconds'] != null) {
           subscriptionEndDate = DateTime.fromMillisecondsSinceEpoch(

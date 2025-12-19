@@ -1,4 +1,4 @@
-package com.example.class_code
+package com.example.teacherzone
 
 import io.flutter.embedding.android.FlutterActivity
 

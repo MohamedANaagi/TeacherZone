@@ -6,6 +6,10 @@ import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/main/presentation/screens/main_screen.dart';
 import '../../features/main/presentation/screens/course_videos_screen.dart';
 import '../../features/main/presentation/screens/exam_quiz_screen.dart';
+import '../../features/admin/presentation/screens/admin_main_screen.dart';
+import '../../features/admin/presentation/screens/admin_add_code_screen.dart';
+import '../../features/admin/presentation/screens/admin_add_course_screen.dart';
+import '../../features/admin/presentation/screens/admin_manage_videos_screen.dart';
 import 'app_routers.dart';
 
 class RouterGenerator {
@@ -62,6 +66,35 @@ class RouterGenerator {
             return MainScreen();
           }
           return ExamQuizScreen(exam: exam);
+        },
+      ),
+      // Admin routes
+      GoRoute(
+        path: AppRouters.adminMainScreen,
+        name: AppRouters.adminMainScreen,
+        builder: (context, state) {
+          return const AdminMainScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.adminAddCodeScreen,
+        name: AppRouters.adminAddCodeScreen,
+        builder: (context, state) {
+          return const AdminAddCodeScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.adminAddCourseScreen,
+        name: AppRouters.adminAddCourseScreen,
+        builder: (context, state) {
+          return const AdminAddCourseScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.adminManageVideosScreen,
+        name: AppRouters.adminManageVideosScreen,
+        builder: (context, state) {
+          return const AdminManageVideosScreen();
         },
       ),
     ],

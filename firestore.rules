@@ -1,0 +1,79 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to validate required fields
+    function isValidCode(data) {
+      return data.keys().hasAll(['code', 'createdAt']) &&
+             data.code is string &&
+             data.code.size() > 0 &&
+             data.createdAt is string;
+    }
+    
+    function isValidCourse(data) {
+      return data.keys().hasAll(['title', 'description', 'instructor', 'duration', 'createdAt']) &&
+             data.title is string &&
+             data.description is string &&
+             data.instructor is string &&
+             data.duration is string &&
+             data.createdAt is string &&
+             data.lessonsCount is int;
+    }
+    
+    function isValidVideo(data) {
+      return data.keys().hasAll(['courseId', 'title', 'url', 'createdAt']) &&
+             data.courseId is string &&
+             data.title is string &&
+             data.url is string &&
+             data.createdAt is string;
+    }
+
+    // ==================== Codes Collection ====================
+    match /codes/{codeId} {
+      // القراءة للجميع (لأن الكود يحتاج التحقق منه)
+      allow read: if true;
+      
+      // الكتابة مقيدة - فقط من التطبيق (يمكن إضافة authentication لاحقاً)
+      allow create: if isValidCode(request.resource.data);
+      allow update: if isValidCode(request.resource.data);
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Courses Collection ====================
+    match /courses/{courseId} {
+      // القراءة للجميع (المستخدمون يحتاجون رؤية الكورسات)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidCourse(request.resource.data);
+      allow update: if isValidCourse(request.resource.data) &&
+                       // منع تغيير createdAt
+                       request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Videos Collection ====================
+    match /videos/{videoId} {
+      // القراءة للجميع (المستخدمون يحتاجون رؤية الفيديوهات)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidVideo(request.resource.data) &&
+                       // التأكد من وجود الكورس
+                       exists(/databases/$(database)/documents/courses/$(request.resource.data.courseId));
+      allow update: if isValidVideo(request.resource.data) &&
+                       // منع تغيير createdAt
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       // منع تغيير courseId
+                       request.resource.data.courseId == resource.data.courseId;
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Default Deny ====================
+    // رفض أي شيء آخر
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

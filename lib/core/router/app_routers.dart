@@ -5,4 +5,10 @@ class AppRouters {
   static const String mainScreen = '/mainScreen';
   static const String courseVideosScreen = '/courseVideos';
   static const String examQuizScreen = '/examQuiz';
+
+  // Admin routes
+  static const String adminMainScreen = '/admin';
+  static const String adminAddCodeScreen = '/admin/add-code';
+  static const String adminAddCourseScreen = '/admin/add-course';
+  static const String adminManageVideosScreen = '/admin/manage-videos';
 }
