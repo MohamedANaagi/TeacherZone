@@ -17,6 +17,8 @@ class AdminAddCodeScreen extends StatefulWidget {
 class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _descriptionController = TextEditingController();
   bool _isLoading = false;
   Future<List<CodeModel>>? _codesFuture; // لحفظ Future الأكواد
@@ -31,6 +33,8 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
   @override
   void dispose() {
     _codeController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -63,6 +67,8 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     try {
       await InjectionContainer.addCodeUseCase(
         code: _codeController.text,
+        name: _nameController.text,
+        phone: _phoneController.text,
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
@@ -70,6 +76,8 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
 
       if (mounted) {
         _codeController.clear();
+        _nameController.clear();
+        _phoneController.clear();
         _descriptionController.clear();
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -193,6 +201,45 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'الرجاء إدخال الكود';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // حقل الاسم
+                      CustomTextField(
+                        controller: _nameController,
+                        hintText: 'أدخل اسم الطالب',
+                        icon: Icons.person_outline,
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'الرجاء إدخال اسم الطالب';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // حقل رقم الهاتف
+                      CustomTextField(
+                        controller: _phoneController,
+                        hintText: 'أدخل رقم الهاتف',
+                        icon: Icons.phone_outlined,
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        keyboardType: TextInputType.phone,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'الرجاء إدخال رقم الهاتف';
+                          }
+                          final cleanPhone = value.replaceAll(
+                            RegExp(r'[^\d]'),
+                            '',
+                          );
+                          if (cleanPhone.length < 10 ||
+                              cleanPhone.length > 15) {
+                            return 'رقم الهاتف يجب أن يحتوي على 10-15 رقم';
                           }
                           return null;
                         },
@@ -348,6 +395,20 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.bold,
                                                   ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'الاسم: ${code.name}',
+                                              style: AppStyles
+                                                  .textSecondaryStyle
+                                                  .copyWith(fontSize: 14),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'الهاتف: ${code.phone}',
+                                              style: AppStyles
+                                                  .textSecondaryStyle
+                                                  .copyWith(fontSize: 14),
                                             ),
                                             if (code.description != null &&
                                                 code

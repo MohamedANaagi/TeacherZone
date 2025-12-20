@@ -47,6 +47,30 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<bool> validateCode(String code) async {
+    try {
+      return await remoteDataSource.validateCode(code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء التحقق من الكود');
+    }
+  }
+
+  @override
+  Future<CodeModel?> getCodeByCode(String code) async {
+    try {
+      return await remoteDataSource.getCodeByCode(code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء جلب بيانات الكود');
+    }
+  }
+
+  @override
   Future<void> addCourse(CourseModel course) async {
     try {
       await remoteDataSource.addCourse(course);

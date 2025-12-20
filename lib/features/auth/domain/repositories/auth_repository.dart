@@ -4,11 +4,8 @@ import '../entities/user.dart';
 /// يعرف العمليات المتاحة للتعامل مع المصادقة
 abstract class AuthRepository {
   /// تسجيل الدخول باستخدام الكود
-  Future<User> login({
-    required String code,
-    required String name,
-    required String email,
-  });
+  /// يتم جلب الاسم ورقم الهاتف المرتبطين بالكود من Firestore
+  Future<User> login({required String code});
 
   /// تسجيل الخروج
   Future<void> logout();

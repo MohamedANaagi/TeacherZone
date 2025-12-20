@@ -14,7 +14,7 @@ import '../../features/admin/domain/usecases/add_video_usecase.dart';
 class InjectionContainer {
   // Data Sources
   static AuthRemoteDataSource get authRemoteDataSource =>
-      AuthRemoteDataSourceImpl();
+      AuthRemoteDataSourceImpl(adminRepository: adminRepository);
 
   static AdminRemoteDataSource get adminRemoteDataSource =>
       AdminRemoteDataSourceImpl();

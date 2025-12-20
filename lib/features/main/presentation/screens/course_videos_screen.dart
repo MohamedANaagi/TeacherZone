@@ -1,221 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../videos/presentation/cubit/videos_cubit.dart';
+import '../../../videos/presentation/cubit/videos_state.dart';
 import '../widgets/video_item_widget.dart';
 
-class CourseVideosScreen extends StatelessWidget {
+class CourseVideosScreen extends StatefulWidget {
   final Map<String, dynamic> course;
 
   const CourseVideosScreen({super.key, required this.course});
 
-  // بيانات وهمية للفيديوهات - قدرات كمي
-  List<Map<String, dynamic>> get videos {
-    final courseId = course['id'] as String;
+  @override
+  State<CourseVideosScreen> createState() => _CourseVideosScreenState();
+}
 
-    // فيديوهات مختلفة حسب الكورس
-    if (courseId == '1') {
-      return [
-        {
-          'id': '1',
-          'title': 'مقدمة في القدرات الكمية',
-          'duration': '15:30',
-          'isWatched': true,
-          'order': 1,
-          'hasQuiz': true, // يوجد نموذج للفيديو
-        },
-        {
-          'id': '2',
-          'title': 'الأعداد والعمليات الحسابية',
-          'duration': '22:45',
-          'isWatched': true,
-          'order': 2,
-          'hasQuiz': true,
-        },
-        {
-          'id': '3',
-          'title': 'الكسور والعمليات عليها',
-          'duration': '18:20',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': false,
-        },
-        {
-          'id': '4',
-          'title': 'النسب والتناسب',
-          'duration': '25:10',
-          'isWatched': false,
-          'order': 4,
-          'hasQuiz': true,
-        },
-        {
-          'id': '5',
-          'title': 'المعادلات الخطية',
-          'duration': '20:00',
-          'isWatched': false,
-          'order': 5,
-          'hasQuiz': false,
-        },
-      ];
-    } else if (courseId == '2') {
-      return [
-        {
-          'id': '1',
-          'title': 'الهندسة الأساسية',
-          'duration': '18:00',
-          'isWatched': true,
-          'order': 1,
-          'hasQuiz': true,
-        },
-        {
-          'id': '2',
-          'title': 'المساحات والأحجام',
-          'duration': '24:30',
-          'isWatched': true,
-          'order': 2,
-          'hasQuiz': false,
-        },
-        {
-          'id': '3',
-          'title': 'الزوايا والمثلثات',
-          'duration': '19:15',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': true,
-        },
-      ];
-    } else if (courseId == '3') {
-      return [
-        {
-          'id': '1',
-          'title': 'المعادلات المعقدة',
-          'duration': '20:00',
-          'isWatched': false,
-          'order': 1,
-          'hasQuiz': true,
-        },
-        {
-          'id': '2',
-          'title': 'المتباينات',
-          'duration': '22:00',
-          'isWatched': false,
-          'order': 2,
-          'hasQuiz': false,
-        },
-        {
-          'id': '3',
-          'title': 'الدوال والرسوم البيانية',
-          'duration': '25:00',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': true,
-        },
-      ];
-    } else if (courseId == '4') {
-      return [
-        {
-          'id': '1',
-          'title': 'استراتيجيات حل المسائل',
-          'duration': '15:00',
-          'isWatched': false,
-          'order': 1,
-          'hasQuiz': true,
-        },
-        {
-          'id': '2',
-          'title': 'المسائل الكلامية',
-          'duration': '18:00',
-          'isWatched': false,
-          'order': 2,
-          'hasQuiz': false,
-        },
-        {
-          'id': '3',
-          'title': 'المسائل المعقدة',
-          'duration': '20:00',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': true,
-        },
-      ];
-    } else if (courseId == '5') {
-      return [
-        {
-          'id': '1',
-          'title': 'مراجعة الأعداد والعمليات',
-          'duration': '16:00',
-          'isWatched': false,
-          'order': 1,
-          'hasQuiz': false,
-        },
-        {
-          'id': '2',
-          'title': 'مراجعة الهندسة',
-          'duration': '19:00',
-          'isWatched': false,
-          'order': 2,
-          'hasQuiz': true,
-        },
-        {
-          'id': '3',
-          'title': 'مراجعة الجبر',
-          'duration': '21:00',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': true,
-        },
-      ];
-    } else if (courseId == '6') {
-      return [
-        {
-          'id': '1',
-          'title': 'المراجعة الشاملة - الجزء الأول',
-          'duration': '22:00',
-          'isWatched': false,
-          'order': 1,
-          'hasQuiz': true,
-        },
-        {
-          'id': '2',
-          'title': 'المراجعة الشاملة - الجزء الثاني',
-          'duration': '24:00',
-          'isWatched': false,
-          'order': 2,
-          'hasQuiz': false,
-        },
-        {
-          'id': '3',
-          'title': 'نصائح قبل الامتحان',
-          'duration': '15:00',
-          'isWatched': false,
-          'order': 3,
-          'hasQuiz': false,
-        },
-      ];
-    } else {
-      return [
-        {
-          'id': '1',
-          'title': 'الدرس الأول',
-          'duration': '10:00',
-          'isWatched': false,
-          'order': 1,
-          'hasQuiz': false,
-        },
-        {
-          'id': '2',
-          'title': 'الدرس الثاني',
-          'duration': '12:30',
-          'isWatched': false,
-          'order': 2,
-          'hasQuiz': true,
-        },
-      ];
-    }
+class _CourseVideosScreenState extends State<CourseVideosScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // تحميل فيديوهات الكورس عند فتح الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final courseId = widget.course['id'] as String;
+        context.read<VideosCubit>().loadCourseVideos(courseId);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(course['color'] as int);
+    final courseId = widget.course['id'] as String;
+    final color = Color(widget.course['color'] as int);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
@@ -247,7 +63,7 @@ class CourseVideosScreen extends StatelessWidget {
                     // أيقونة الكورس
                     Center(
                       child: Icon(
-                        _getCourseIcon(course['image'] as String),
+                        _getCourseIcon(widget.course['image'] as String),
                         size: 100,
                         color: AppColors.secondaryColor.withOpacity(0.3),
                       ),
@@ -261,7 +77,7 @@ class CourseVideosScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            course['title'] as String,
+                            widget.course['title'] as String,
                             style: AppStyles.mainTextStyle.copyWith(
                               color: AppColors.secondaryColor,
                               fontSize: 24,
@@ -279,7 +95,7 @@ class CourseVideosScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                course['instructor'] as String,
+                                widget.course['instructor'] as String,
                                 style: AppStyles.subTextStyle.copyWith(
                                   fontSize: 14,
                                   color: AppColors.secondaryColor.withOpacity(
@@ -317,21 +133,21 @@ class CourseVideosScreen extends StatelessWidget {
                         _buildInfoItem(
                           icon: Icons.play_circle_outline,
                           label: 'الدروس',
-                          value: '${course['lessonsCount']}',
+                          value: '${widget.course['lessonsCount']}',
                           color: color,
                         ),
                         const SizedBox(width: 24),
                         _buildInfoItem(
                           icon: Icons.access_time,
                           label: 'المدة',
-                          value: course['duration'] as String,
+                          value: widget.course['duration'] as String,
                           color: color,
                         ),
                         const SizedBox(width: 24),
                         _buildInfoItem(
                           icon: Icons.trending_up,
                           label: 'التقدم',
-                          value: '${course['progress']}%',
+                          value: '${widget.course['progress']}%',
                           color: color,
                         ),
                       ],
@@ -345,16 +161,91 @@ class CourseVideosScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   // قائمة الفيديوهات
-                  ...videos.map(
-                    (video) => RepaintBoundary(
-                      child: VideoItemWidget(
-                        video: video,
-                        courseColor: color,
-                        onTap: () {
-                          _showVideoDialog(context, video, color);
-                        },
-                      ),
-                    ),
+                  BlocBuilder<VideosCubit, VideosState>(
+                    builder: (context, state) {
+                      final videos = state.getVideosForCourse(courseId);
+                      final isLoading = state.isLoadingCourse(courseId);
+                      final error = state.getErrorForCourse(courseId);
+
+                      if (isLoading) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      if (error != null) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: AppColors.textLight,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  error,
+                                  style: AppStyles.textSecondaryStyle,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    context
+                                        .read<VideosCubit>()
+                                        .loadCourseVideos(courseId);
+                                  },
+                                  child: const Text('إعادة المحاولة'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (videos.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.video_library_outlined,
+                                  size: 48,
+                                  color: AppColors.textLight,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'لا توجد فيديوهات متاحة',
+                                  style: AppStyles.textSecondaryStyle,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        children: videos
+                            .map(
+                              (video) => RepaintBoundary(
+                                child: VideoItemWidget(
+                                  video: video,
+                                  courseColor: color,
+                                  onTap: () {
+                                    _showVideoDialog(context, video, color);
+                                  },
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    },
                   ),
                 ],
               ),

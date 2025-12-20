@@ -1,12 +1,16 @@
 class CodeModel {
   final String id;
   final String code;
+  final String name; // اسم المستخدم المرتبط بالكود
+  final String phone; // رقم هاتف المستخدم المرتبط بالكود
   final String? description;
   final DateTime createdAt;
 
   CodeModel({
     required this.id,
     required this.code,
+    required this.name,
+    required this.phone,
     this.description,
     required this.createdAt,
   });
@@ -15,6 +19,8 @@ class CodeModel {
   Map<String, dynamic> toFirestore() {
     return {
       'code': code,
+      'name': name,
+      'phone': phone,
       'description': description ?? '',
       'createdAt': createdAt.toIso8601String(),
     };
@@ -25,6 +31,8 @@ class CodeModel {
     return CodeModel(
       id: id,
       code: data['code'] ?? '',
+      name: data['name'] ?? '',
+      phone: data['phone'] ?? '',
       description: data['description'],
       createdAt: data['createdAt'] != null
           ? DateTime.parse(data['createdAt'])

@@ -5,20 +5,21 @@ import 'user_state.dart';
 
 class UserCubit extends Cubit<UserState> {
   UserCubit() : super(const UserState()) {
-    loadUserData();
+    // لا نستدعي loadUserData هنا لتجنب deadlock على iOS
+    // سيتم استدعاؤها في splash screen
   }
 
   /// تحديث بيانات المستخدم
   Future<void> updateUser({
     String? name,
-    String? email,
+    String? phone,
     String? imagePath,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
   }) async {
     final newState = state.copyWith(
       name: name,
-      email: email,
+      phone: phone,
       imagePath: imagePath,
       subscriptionEndDate: subscriptionEndDate,
       isLoggedIn: isLoggedIn,
@@ -42,11 +43,11 @@ class UserCubit extends Cubit<UserState> {
         await prefs.remove('user_name');
       }
 
-      // حفظ أو مسح الإيميل
-      if (state.email != null) {
-        await prefs.setString('user_email', state.email!);
+      // حفظ أو مسح رقم الهاتف
+      if (state.phone != null) {
+        await prefs.setString('user_phone', state.phone!);
       } else {
-        await prefs.remove('user_email');
+        await prefs.remove('user_phone');
       }
 
       // حفظ أو مسح مسار الصورة
@@ -81,7 +82,7 @@ class UserCubit extends Cubit<UserState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString('user_name');
-      final email = prefs.getString('user_email');
+      final phone = prefs.getString('user_phone');
       final imagePath = prefs.getString('user_image_path');
       final subscriptionDateString = prefs.getString('subscription_end_date');
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
@@ -100,7 +101,7 @@ class UserCubit extends Cubit<UserState> {
       emit(
         UserState(
           name: name,
-          email: email,
+          phone: phone,
           imagePath: imagePath,
           subscriptionEndDate: subscriptionEndDate,
           isLoggedIn: isLoggedIn,

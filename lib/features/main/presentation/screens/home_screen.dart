@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
-import '../../../../../core/cubit/user_cubit.dart';
-import '../../../../../core/cubit/user_state.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
+import '../../../user/presentation/cubit/user_state.dart';
 import '../widgets/user_card_widget.dart';
 import '../widgets/stat_card_widget.dart';
 import '../widgets/feature_card_widget.dart';
 import '../widgets/welcome_section_widget.dart';
 
+/// الشاشة الرئيسية للتطبيق
+/// تعرض معلومات المستخدم، إحصائيات سريعة، وميزات المنصة
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -22,16 +24,7 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // بطاقة المستخدم في الأعلى
-              BlocBuilder<UserCubit, UserState>(
-                buildWhen: (previous, current) =>
-                    previous.name != current.name ||
-                    previous.email != current.email ||
-                    previous.imagePath != current.imagePath ||
-                    previous.subscriptionEndDate != current.subscriptionEndDate,
-                builder: (context, state) {
-                  return UserCardWidget(state: state);
-                },
-              ),
+              _buildUserCard(),
               const SizedBox(height: 24),
 
               // قسم تعريف عن المحتوى
@@ -43,11 +36,6 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // قسم الميزات
-              Text(
-                'مميزات المنصة',
-                style: AppStyles.headingStyle.copyWith(fontSize: 22),
-              ),
-              const SizedBox(height: 16),
               _buildFeaturesSection(),
             ],
           ),
@@ -56,7 +44,24 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// قسم الإحصائيات
+  /// بناء بطاقة المستخدم
+  /// تعرض معلومات المستخدم (الاسم، رقم الهاتف، الصورة، الأيام المتبقية)
+  /// تستخدم BlocBuilder للتحديث التلقائي عند تغيير بيانات المستخدم
+  Widget _buildUserCard() {
+    return BlocBuilder<UserCubit, UserState>(
+      buildWhen: (previous, current) =>
+          previous.name != current.name ||
+          previous.phone != current.phone ||
+          previous.imagePath != current.imagePath ||
+          previous.subscriptionEndDate != current.subscriptionEndDate,
+      builder: (context, state) {
+        return UserCardWidget(state: state);
+      },
+    );
+  }
+
+  /// بناء قسم الإحصائيات
+  /// يعرض ثلاثة بطاقات إحصائية: الدروس المكتملة، الكورسات النشطة، الاختبارات
   Widget _buildStatsSection() {
     return Row(
       children: [
@@ -90,8 +95,10 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// قسم الميزات
+  /// بناء قسم الميزات
+  /// يعرض قائمة بالميزات المتاحة في المنصة (دروس فيديو، اختبارات، تتبع التقدم)
   Widget _buildFeaturesSection() {
+    // بيانات الميزات - يمكن تحويلها إلى Cubit في المستقبل
     final features = [
       {
         'icon': Icons.video_library,
@@ -111,13 +118,23 @@ class HomeScreen extends StatelessWidget {
     ];
 
     return Column(
-      children: features.map((feature) {
-        return FeatureCardWidget(
-          icon: feature['icon'] as IconData,
-          title: feature['title'] as String,
-          description: feature['description'] as String,
-        );
-      }).toList(),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // عنوان القسم
+        Text(
+          'مميزات المنصة',
+          style: AppStyles.headingStyle.copyWith(fontSize: 22),
+        ),
+        const SizedBox(height: 16),
+        // قائمة الميزات
+        ...features.map((feature) {
+          return FeatureCardWidget(
+            icon: feature['icon'] as IconData,
+            title: feature['title'] as String,
+            description: feature['description'] as String,
+          );
+        }).toList(),
+      ],
     );
   }
 }
