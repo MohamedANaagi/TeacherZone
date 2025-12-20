@@ -2,14 +2,14 @@ import 'package:equatable/equatable.dart';
 
 class UserState extends Equatable {
   final String? name;
-  final String? email;
+  final String? phone;
   final String? imagePath;
   final DateTime? subscriptionEndDate;
   final bool isLoggedIn;
 
   const UserState({
     this.name,
-    this.email,
+    this.phone,
     this.imagePath,
     this.subscriptionEndDate,
     this.isLoggedIn = false,
@@ -26,18 +26,18 @@ class UserState extends Equatable {
   /// نسخ الحالة مع تحديث القيم
   UserState copyWith({
     String? name,
-    String? email,
+    String? phone,
     String? imagePath,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
     bool? clearName,
-    bool? clearEmail,
+    bool? clearPhone,
     bool? clearImagePath,
     bool? clearSubscriptionEndDate,
   }) {
     return UserState(
       name: clearName == true ? null : (name ?? this.name),
-      email: clearEmail == true ? null : (email ?? this.email),
+      phone: clearPhone == true ? null : (phone ?? this.phone),
       imagePath: clearImagePath == true ? null : (imagePath ?? this.imagePath),
       subscriptionEndDate: clearSubscriptionEndDate == true
           ? null
@@ -49,7 +49,7 @@ class UserState extends Equatable {
   @override
   List<Object?> get props => [
     name,
-    email,
+    phone,
     imagePath,
     subscriptionEndDate,
     isLoggedIn,

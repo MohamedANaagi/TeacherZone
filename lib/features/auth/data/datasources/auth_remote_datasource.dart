@@ -1,4 +1,7 @@
+import 'package:class_code/features/admin/domain/repositories/admin_repository.dart';
+
 import '../models/user_model.dart';
+import '../../../../core/errors/exceptions.dart';
 
 /// Remote Data Source Interface
 /// يعرف العمليات للتعامل مع API
@@ -7,7 +10,7 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> login({
     required String code,
     required String name,
-    required String email,
+    required String phone,
   });
 
   /// تسجيل الخروج
@@ -21,44 +24,54 @@ abstract class AuthRemoteDataSource {
 }
 
 /// Remote Data Source Implementation
-/// TODO: استبدل هذا بتطبيق حقيقي يستخدم http أو dio
+/// يقوم بالتحقق من صحة الكود من Firestore قبل تسجيل الدخول
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  // TODO: أضف http.Client أو Dio هنا
-  // final http.Client client;
+  final AdminRepository adminRepository;
 
-  // AuthRemoteDataSourceImpl(this.client);
+  AuthRemoteDataSourceImpl({required this.adminRepository});
 
+  /// تسجيل الدخول باستخدام الكود
+  ///
+  /// الخطوات:
+  /// 1. التحقق من صحة الكود من Firestore عبر AdminRepository
+  /// 2. إذا كان الكود صحيحاً، إنشاء UserModel مع بيانات المستخدم
+  /// 3. حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
+  /// 4. إرجاع UserModel
+  ///
+  /// يرمي AuthException إذا كان الكود غير صحيح
   @override
   Future<UserModel> login({
     required String code,
     required String name,
-    required String email,
+    required String phone,
   }) async {
-    // TODO: استبدل هذا بطلب API حقيقي
-    // final response = await client.post(
-    //   Uri.parse('https://api.example.com/auth/login'),
-    //   body: {'code': code, 'name': name, 'email': email},
-    // );
-    //
-    // if (response.statusCode == 200) {
-    //   return UserModel.fromJson(jsonDecode(response.body));
-    // } else {
-    //   throw ServerException('فشل تسجيل الدخول');
-    // }
+    try {
+      // التحقق من صحة الكود من Firestore
+      final isValidCode = await adminRepository.validateCode(code);
 
-    // Simulation - حذف هذا عند إضافة API حقيقي
-    await Future.delayed(const Duration(seconds: 1));
+      if (!isValidCode) {
+        throw AuthException('الكود المدخل غير صحيح أو غير موجود');
+      }
 
-    // حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
-    final subscriptionEndDate = DateTime.now().add(const Duration(days: 30));
+      // حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
+      final subscriptionEndDate = DateTime.now().add(const Duration(days: 30));
 
-    return UserModel(
-      id: '1',
-      name: name,
-      email: email,
-      code: code,
-      subscriptionEndDate: subscriptionEndDate,
-    );
+      // إنشاء UserModel مع معرف فريد
+      return UserModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: name,
+        phone: phone,
+        code: code,
+        subscriptionEndDate: subscriptionEndDate,
+      );
+    } on AppException {
+      rethrow;
+    } catch (e) {
+      if (e is AppException) {
+        rethrow;
+      }
+      throw AuthException('فشل تسجيل الدخول: ${e.toString()}');
+    }
   }
 
   @override

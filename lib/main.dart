@@ -5,7 +5,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/router/router.dart';
 import 'core/styling/theme_data.dart';
-import 'core/cubit/user_cubit.dart';
+import 'features/user/presentation/cubit/user_cubit.dart';
+import 'features/courses/presentation/cubit/courses_cubit.dart';
+import 'features/videos/presentation/cubit/videos_cubit.dart';
+import 'features/exams/presentation/cubit/exams_cubit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,8 +31,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => UserCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (context) => UserCubit()),
+        BlocProvider(create: (context) => CoursesCubit()),
+        BlocProvider(create: (context) => VideosCubit()),
+        BlocProvider(create: (context) => ExamsCubit()),
+      ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         title: 'TeacherZone',

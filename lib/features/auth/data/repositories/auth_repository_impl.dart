@@ -14,13 +14,13 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<User> login({
     required String code,
     required String name,
-    required String email,
+    required String phone,
   }) async {
     try {
       final userModel = await remoteDataSource.login(
         code: code,
         name: name,
-        email: email,
+        phone: phone,
       );
       return userModel.toEntity();
     } on AppException {

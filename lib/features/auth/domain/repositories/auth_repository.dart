@@ -7,7 +7,7 @@ abstract class AuthRepository {
   Future<User> login({
     required String code,
     required String name,
-    required String email,
+    required String phone,
   });
 
   /// تسجيل الخروج

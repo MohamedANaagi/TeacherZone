@@ -1,15 +1,24 @@
+import '../../../user/presentation/cubit/user_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
-import '../../../../../core/cubit/user_cubit.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/custom_code_field.dart';
+import '../widgets/login_app_logo.dart';
+import '../widgets/login_app_title.dart';
+import '../widgets/login_subtitle.dart';
+import '../widgets/login_button.dart';
+import '../widgets/admin_hidden_button.dart';
+import '../widgets/animated_form_field.dart';
+import '../widgets/error_snackbar_helper.dart';
 
+/// شاشة تسجيل الدخول
+/// تقوم بجمع بيانات المستخدم (الاسم، البريد الإلكتروني، الكود) وتسجيل الدخول
 class CodeInputScreen extends StatefulWidget {
   const CodeInputScreen({super.key});
 
@@ -19,16 +28,19 @@ class CodeInputScreen extends StatefulWidget {
 
 class _CodeInputScreenState extends State<CodeInputScreen>
     with TickerProviderStateMixin {
+  // Controllers لحقول الإدخال
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
+  // Animation Controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _scaleController;
 
+  // Animations
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
@@ -36,25 +48,32 @@ class _CodeInputScreenState extends State<CodeInputScreen>
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _startAnimations();
+  }
 
-    // Fade Animation
+  /// تهيئة جميع Animation Controllers و Animations
+  /// يتم استدعاؤها مرة واحدة عند تهيئة الشاشة
+  void _initializeAnimations() {
+    // Fade Animation Controller - للشفافية
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
 
-    // Slide Animation
+    // Slide Animation Controller - للانزلاق
     _slideController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // Scale Animation
+    // Scale Animation Controller - للتكبير/التصغير
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
 
+    // إنشاء Animations من Controllers
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
@@ -68,8 +87,11 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       begin: 0.9,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOut));
+  }
 
-    // Start animations
+  /// بدء تشغيل Animations بشكل متدرج
+  /// Fade يبدأ أولاً، ثم Slide بعد 300ms، ثم Scale بعد 500ms
+  void _startAnimations() {
     _fadeController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
       _slideController.forward();
@@ -81,34 +103,46 @@ class _CodeInputScreenState extends State<CodeInputScreen>
 
   @override
   void dispose() {
+    // تنظيف جميع Controllers عند تدمير الشاشة
     _codeController.dispose();
     _nameController.dispose();
-    _emailController.dispose();
+    _phoneController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
     _scaleController.dispose();
     super.dispose();
   }
 
+  /// معالجة الضغط على زر تسجيل الدخول
+  ///
+  /// الخطوات:
+  /// 1. التحقق من صحة البيانات المدخلة
+  /// 2. استدعاء LoginUseCase لتسجيل الدخول
+  /// 3. حفظ بيانات المستخدم في UserCubit
+  /// 4. الانتقال للشاشة الرئيسية
+  /// 5. معالجة الأخطاء وعرضها للمستخدم
   Future<void> _onLoginPressed() async {
+    // التحقق من صحة النموذج
     if (!formKey.currentState!.validate()) {
       return;
     }
 
+    // تفعيل حالة التحميل
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // جمع البيانات من الحقول
       final code = _codeController.text.trim();
       final name = _nameController.text.trim();
-      final email = _emailController.text.trim();
+      final phone = _phoneController.text.trim();
 
-      // تسجيل الدخول
+      // استدعاء LoginUseCase لتسجيل الدخول
       final user = await InjectionContainer.loginUseCase(
         code: code,
         name: name,
-        email: email,
+        phone: phone,
       );
 
       // حفظ بيانات المستخدم في UserCubit
@@ -116,7 +150,7 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       final userCubit = context.read<UserCubit>();
       await userCubit.updateUser(
         name: user.name,
-        email: user.email,
+        phone: user.phone,
         subscriptionEndDate: user.subscriptionEndDate,
         isLoggedIn: true,
       );
@@ -126,69 +160,57 @@ class _CodeInputScreenState extends State<CodeInputScreen>
         context.go(AppRouters.mainScreen);
       }
     } on ValidationException catch (e) {
+      // معالجة أخطاء التحقق من البيانات
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text(e.message)),
-              ],
-            ),
-            backgroundColor: AppColors.errorColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        ErrorSnackBarHelper.showError(context, e.message);
       }
     } on AuthException catch (e) {
+      // معالجة أخطاء المصادقة
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(child: Text(e.message)),
-              ],
-            ),
-            backgroundColor: AppColors.errorColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        ErrorSnackBarHelper.showError(context, e.message);
       }
     } catch (e) {
+      // معالجة الأخطاء العامة
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('حدث خطأ غير متوقع: ${e.toString()}')),
-              ],
-            ),
-            backgroundColor: AppColors.errorColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        ErrorSnackBarHelper.showError(
+          context,
+          'حدث خطأ غير متوقع: ${e.toString()}',
         );
       }
     } finally {
+      // إلغاء حالة التحميل في جميع الأحوال
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
     }
+  }
+
+  /// Validator للتحقق من صحة الاسم
+  /// يتحقق من أن الحقل غير فارغ
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'من فضلك أدخل اسمك';
+    }
+    return null;
+  }
+
+  /// Validator للتحقق من صحة رقم الهاتف
+  /// يتحقق من أن الحقل غير فارغ وأنه يحتوي على أرقام فقط
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'من فضلك أدخل رقم هاتفك';
+    }
+    // إزالة جميع الأحرف غير الرقمية للتحقق
+    final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleanPhone.length < 10) {
+      return 'رقم الهاتف يجب أن يحتوي على 10 أرقام على الأقل';
+    }
+    if (cleanPhone.length > 15) {
+      return 'رقم الهاتف يجب ألا يتجاوز 15 رقم';
+    }
+    return null;
   }
 
   @override
@@ -207,387 +229,159 @@ class _CodeInputScreenState extends State<CodeInputScreen>
               ],
             ),
           ),
-          child: SafeArea(
-            child: Stack(
-              children: [
-                SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // زر خفي للوصول إلى لوحة الإدارة (في الزاوية اليمنى العلوية)
-                          GestureDetector(
-                            onTap: () {
-                              context.push(AppRouters.adminMainScreen);
-                            },
-                            // زر شفاف/خفي - اضغط على الزاوية اليمنى العلوية
-                            child: Container(
-                              alignment: Alignment.topRight,
-                              padding: const EdgeInsets.only(bottom: 20),
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                color: Colors.transparent,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
+          child: SafeArea(child: _buildLoginContent()),
+        ),
+      ),
+    );
+  }
 
-                          // Logo/Icon مع Animation
-                          RepaintBoundary(
-                            child: FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: ScaleTransition(
-                                scale: _scaleAnimation,
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.secondaryColor.withOpacity(
-                                      0.2,
-                                    ),
-                                    border: Border.all(
-                                      color: AppColors.secondaryColor,
-                                      width: 3,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.secondaryColor
-                                            .withOpacity(0.3),
-                                        blurRadius: 20,
-                                        spreadRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.school,
-                                    size: 50,
-                                    color: AppColors.secondaryColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+  /// بناء محتوى الشاشة الرئيسي
+  /// يحتوي على النموذج وجميع العناصر
+  Widget _buildLoginContent() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // زر خفي للوصول إلى لوحة الإدارة
+              const AdminHiddenButton(),
+              const SizedBox(height: 40),
 
-                          const SizedBox(height: 30),
+              // شعار التطبيق
+              LoginAppLogo(
+                fadeAnimation: _fadeAnimation,
+                scaleAnimation: _scaleAnimation,
+              ),
+              const SizedBox(height: 30),
 
-                          // اسم التطبيق مع Animation
-                          RepaintBoundary(
-                            child: FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: SlideTransition(
-                                position: _slideAnimation,
-                                child: Text(
-                                  'TeacherZone',
-                                  textAlign: TextAlign.center,
-                                  style: AppStyles.mainTextStyle.copyWith(
-                                    color: AppColors.secondaryColor,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.5,
-                                    shadows: [
-                                      Shadow(
-                                        color: AppColors.secondaryColor
-                                            .withOpacity(0.5),
-                                        blurRadius: 15,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+              // عنوان التطبيق
+              LoginAppTitle(
+                fadeAnimation: _fadeAnimation,
+                slideAnimation: _slideAnimation,
+              ),
+              const SizedBox(height: 12),
 
-                          const SizedBox(height: 12),
+              // النص التوضيحي
+              LoginSubtitle(
+                fadeAnimation: _fadeAnimation,
+                slideAnimation: _slideAnimation,
+              ),
+              const SizedBox(height: 50),
 
-                          // النص التوضيحي مع Animation
-                          RepaintBoundary(
-                            child: FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: SlideTransition(
-                                position: _slideAnimation,
-                                child: Text(
-                                  'أدخل بياناتك للدخول',
-                                  textAlign: TextAlign.center,
-                                  style: AppStyles.subTextStyle.copyWith(
-                                    fontSize: 16,
-                                    color: AppColors.secondaryColor.withOpacity(
-                                      0.9,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+              // حقل الاسم
+              _buildNameField(),
+              const SizedBox(height: 20),
 
-                          const SizedBox(height: 50),
+              // حقل رقم الهاتف
+              _buildPhoneField(),
+              const SizedBox(height: 20),
 
-                          // حقل الاسم مع Animation
-                          RepaintBoundary(
-                            child: SlideTransition(
-                              position:
-                                  Tween<Offset>(
-                                    begin: const Offset(0, 0.15),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: _slideController,
-                                      curve: const Interval(
-                                        0.3,
-                                        1.0,
-                                        curve: Curves.easeOut,
-                                      ),
-                                    ),
-                                  ),
-                              child: FadeTransition(
-                                opacity: Tween<double>(begin: 0.0, end: 1.0)
-                                    .animate(
-                                      CurvedAnimation(
-                                        parent: _fadeController,
-                                        curve: const Interval(0.3, 1.0),
-                                      ),
-                                    ),
-                                child: CustomTextField(
-                                  controller: _nameController,
-                                  hintText: 'أدخل اسمك',
-                                  icon: Icons.person_outline,
-                                  textAlign: TextAlign.right,
-                                  textDirection: TextDirection.rtl,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'من فضلك أدخل اسمك';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
+              // حقل الكود
+              _buildCodeField(),
+              const SizedBox(height: 40),
 
-                          const SizedBox(height: 20),
+              // زر الدخول
+              LoginButton(
+                onPressed: _onLoginPressed,
+                isLoading: _isLoading,
+                fadeAnimation: _fadeAnimation,
+                slideController: _slideController,
+                fadeController: _fadeController,
+                scaleAnimation: _scaleAnimation,
+              ),
+              const SizedBox(height: 30),
 
-                          // حقل الإيميل مع Animation
-                          RepaintBoundary(
-                            child: SlideTransition(
-                              position:
-                                  Tween<Offset>(
-                                    begin: const Offset(0, 0.2),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: _slideController,
-                                      curve: const Interval(
-                                        0.3,
-                                        1.0,
-                                        curve: Curves.easeOut,
-                                      ),
-                                    ),
-                                  ),
-                              child: FadeTransition(
-                                opacity: Tween<double>(begin: 0.0, end: 1.0)
-                                    .animate(
-                                      CurvedAnimation(
-                                        parent: _fadeController,
-                                        curve: const Interval(0.4, 1.0),
-                                      ),
-                                    ),
-                                child: CustomTextField(
-                                  controller: _emailController,
-                                  hintText: 'أدخل بريدك الإلكتروني',
-                                  icon: Icons.email_outlined,
-                                  textAlign: TextAlign.right,
-                                  textDirection: TextDirection.rtl,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'من فضلك أدخل بريدك الإلكتروني';
-                                    }
-                                    if (!value.contains('@')) {
-                                      return 'من فضلك أدخل بريد إلكتروني صحيح';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
+              // رابط "ليس لديك كود؟"
+              _buildNoCodeLink(),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                          const SizedBox(height: 20),
+  /// بناء حقل الإدخال للاسم مع تأثيرات animation
+  Widget _buildNameField() {
+    return AnimatedFormField(
+      slideController: _slideController,
+      fadeController: _fadeController,
+      slideIntervalStart: 0.3,
+      slideIntervalEnd: 1.0,
+      fadeIntervalStart: 0.3,
+      fadeIntervalEnd: 1.0,
+      slideBegin: const Offset(0, 0.15),
+      child: CustomTextField(
+        controller: _nameController,
+        hintText: 'أدخل اسمك',
+        icon: Icons.person_outline,
+        textAlign: TextAlign.right,
+        textDirection: TextDirection.rtl,
+        validator: _validateName,
+      ),
+    );
+  }
 
-                          // حقل الكود مع Animation
-                          RepaintBoundary(
-                            child: SlideTransition(
-                              position:
-                                  Tween<Offset>(
-                                    begin: const Offset(0, 0.2),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: _slideController,
-                                      curve: const Interval(
-                                        0.4,
-                                        1.0,
-                                        curve: Curves.easeOut,
-                                      ),
-                                    ),
-                                  ),
-                              child: FadeTransition(
-                                opacity: Tween<double>(begin: 0.0, end: 1.0)
-                                    .animate(
-                                      CurvedAnimation(
-                                        parent: _fadeController,
-                                        curve: const Interval(0.5, 1.0),
-                                      ),
-                                    ),
-                                child: CustomCodeField(
-                                  controller: _codeController,
-                                ),
-                              ),
-                            ),
-                          ),
+  /// بناء حقل الإدخال لرقم الهاتف مع تأثيرات animation
+  Widget _buildPhoneField() {
+    return AnimatedFormField(
+      slideController: _slideController,
+      fadeController: _fadeController,
+      slideIntervalStart: 0.3,
+      slideIntervalEnd: 1.0,
+      fadeIntervalStart: 0.4,
+      fadeIntervalEnd: 1.0,
+      slideBegin: const Offset(0, 0.2),
+      child: CustomTextField(
+        controller: _phoneController,
+        hintText: 'أدخل رقم هاتفك',
+        icon: Icons.phone_outlined,
+        textAlign: TextAlign.right,
+        textDirection: TextDirection.rtl,
+        keyboardType: TextInputType.phone,
+        validator: _validatePhone,
+      ),
+    );
+  }
 
-                          const SizedBox(height: 40),
+  /// بناء حقل الإدخال للكود مع تأثيرات animation
+  Widget _buildCodeField() {
+    return AnimatedFormField(
+      slideController: _slideController,
+      fadeController: _fadeController,
+      slideIntervalStart: 0.4,
+      slideIntervalEnd: 1.0,
+      fadeIntervalStart: 0.5,
+      fadeIntervalEnd: 1.0,
+      slideBegin: const Offset(0, 0.2),
+      child: CustomCodeField(controller: _codeController),
+    );
+  }
 
-                          // زرار الدخول مع Animation
-                          RepaintBoundary(
-                            child: SlideTransition(
-                              position:
-                                  Tween<Offset>(
-                                    begin: const Offset(0, 0.2),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: _slideController,
-                                      curve: const Interval(
-                                        0.6,
-                                        1.0,
-                                        curve: Curves.easeOut,
-                                      ),
-                                    ),
-                                  ),
-                              child: FadeTransition(
-                                opacity: Tween<double>(begin: 0.0, end: 1.0)
-                                    .animate(
-                                      CurvedAnimation(
-                                        parent: _fadeController,
-                                        curve: const Interval(0.6, 1.0),
-                                      ),
-                                    ),
-                                child: ScaleTransition(
-                                  scale: _scaleAnimation,
-                                  child: Container(
-                                    height: 56,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.secondaryColor
-                                              .withOpacity(0.3),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ElevatedButton(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : _onLoginPressed,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            AppColors.secondaryColor,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        elevation: 0,
-                                      ),
-                                      child: _isLoading
-                                          ? const SizedBox(
-                                              width: 24,
-                                              height: 24,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.5,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                      Color
-                                                    >(AppColors.primaryColor),
-                                              ),
-                                            )
-                                          : Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  'دخول',
-                                                  style: AppStyles.subTextStyle
-                                                      .copyWith(
-                                                        color: AppColors
-                                                            .primaryColor,
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Icon(
-                                                  Icons.arrow_forward,
-                                                  color: AppColors.primaryColor,
-                                                  size: 20,
-                                                ),
-                                              ],
-                                            ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // "ليس لديك كود؟" مع Animation
-                          FadeTransition(
-                            opacity: Tween<double>(begin: 0.0, end: 1.0)
-                                .animate(
-                                  CurvedAnimation(
-                                    parent: _fadeController,
-                                    curve: const Interval(0.7, 1.0),
-                                  ),
-                                ),
-                            child: Center(
-                              child: TextButton(
-                                onPressed: () {
-                                  // TODO: إضافة صفحة التواصل
-                                },
-                                child: Text(
-                                  'ليس لديك كود؟',
-                                  style: AppStyles.subTextStyle.copyWith(
-                                    fontSize: 15,
-                                    color: AppColors.secondaryColor.withOpacity(
-                                      0.9,
-                                    ),
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.secondaryColor
-                                        .withOpacity(0.9),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+  /// بناء رابط "ليس لديك كود؟" مع تأثير animation
+  Widget _buildNoCodeLink() {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _fadeController,
+          curve: const Interval(0.7, 1.0),
+        ),
+      ),
+      child: Center(
+        child: TextButton(
+          onPressed: () {
+            // TODO: إضافة صفحة التواصل
+          },
+          child: Text(
+            'ليس لديك كود؟',
+            style: AppStyles.subTextStyle.copyWith(
+              fontSize: 15,
+              color: AppColors.secondaryColor.withOpacity(0.9),
+              decoration: TextDecoration.underline,
+              decorationColor: AppColors.secondaryColor.withOpacity(0.9),
             ),
           ),
         ),

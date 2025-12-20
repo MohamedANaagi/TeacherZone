@@ -1,14 +1,18 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
-import '../../../../../core/cubit/user_cubit.dart';
-import '../../../../../core/cubit/user_state.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
+import '../../../user/presentation/cubit/user_state.dart';
 import '../../../../../core/router/app_routers.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/profile_info_item.dart';
+import '../widgets/subscription_info_card.dart';
 
+/// شاشة الملف الشخصي
+/// تعرض معلومات المستخدم وتمكنه من تعديل صورة الملف الشخصي وتسجيل الخروج
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -17,8 +21,15 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  /// ImagePicker instance لاختيار الصور
   final ImagePicker _imagePicker = ImagePicker();
 
+  /// اختيار صورة من المعرض وتحديث صورة الملف الشخصي
+  ///
+  /// الخطوات:
+  /// 1. فتح معرض الصور باستخدام ImagePicker
+  /// 2. عند اختيار صورة، تحديث imagePath في UserCubit
+  /// 3. في حالة حدوث خطأ، عرض رسالة خطأ للمستخدم
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -41,12 +52,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// معالجة تسجيل الخروج
+  ///
+  /// الخطوات:
+  /// 1. مسح جميع بيانات المستخدم من UserCubit
+  /// 2. عرض رسالة نجاح
+  /// 3. إعادة التوجيه لشاشة تسجيل الدخول
+  Future<void> _handleLogout() async {
+    if (!mounted) return;
+
+    final userCubit = context.read<UserCubit>();
+    await userCubit.clearUserData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم تسجيل الخروج')));
+      // إعادة التوجيه لصفحة تسجيل الدخول
+      context.go(AppRouters.codeInputScreen);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserCubit, UserState>(
       buildWhen: (previous, current) =>
           previous.name != current.name ||
-          previous.email != current.email ||
+          previous.phone != current.phone ||
           previous.imagePath != current.imagePath ||
           previous.subscriptionEndDate != current.subscriptionEndDate,
       builder: (context, state) {
@@ -58,239 +90,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
 
                 // صورة المستخدم
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primaryColor,
-                            width: 3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.3,
-                              ),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: state.imagePath != null
-                              ? Image.file(
-                                  File(state.imagePath!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return _buildDefaultAvatar();
-                                  },
-                                )
-                              : _buildDefaultAvatar(),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.secondaryColor,
-                              width: 2,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: AppColors.secondaryColor,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ProfileAvatar(imagePath: state.imagePath, onTap: _pickImage),
 
                 const SizedBox(height: 32),
 
                 // بطاقة المعلومات
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // الاسم
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            color: AppColors.primaryColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'الاسم',
-                                  style: AppStyles.grey12MediumStyle.copyWith(
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  state.name ?? 'غير متوفر',
-                                  style: AppStyles.mainTextStyle.copyWith(
-                                    fontSize: 18,
-                                    color: state.name != null
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // الإيميل
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.email_outlined,
-                            color: AppColors.primaryColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'البريد الإلكتروني',
-                                  style: AppStyles.grey12MediumStyle.copyWith(
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  state.email ?? 'غير متوفر',
-                                  style: AppStyles.black16w500Style.copyWith(
-                                    fontSize: 16,
-                                    color: state.email != null
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      // الأيام المتبقية
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: AppColors.primaryColor,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'الأيام المتبقية على الاشتراك',
-                                    style: AppStyles.grey12MediumStyle.copyWith(
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    state.remainingDays > 0
-                                        ? '${state.remainingDays} يوم'
-                                        : 'لا يوجد اشتراك نشط',
-                                    style: AppStyles.mainTextStyle.copyWith(
-                                      fontSize: 20,
-                                      color: state.remainingDays > 0
-                                          ? AppColors.primaryColor
-                                          : AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildInfoCard(state),
 
                 const SizedBox(height: 24),
 
                 // زر تسجيل الخروج
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      if (!mounted) return;
-                      final userCubit = context.read<UserCubit>();
-                      await userCubit.clearUserData();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم تسجيل الخروج')),
-                        );
-                        // إعادة التوجيه لصفحة تسجيل الدخول
-                        context.go(AppRouters.codeInputScreen);
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: AppColors.primaryColor, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      'تسجيل الخروج',
-                      style: AppStyles.mainTextStyle.copyWith(
-                        fontSize: 16,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                  ),
-                ),
+                _buildLogoutButton(),
               ],
             ),
           ),
@@ -299,10 +109,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDefaultAvatar() {
+  /// بناء بطاقة المعلومات التي تحتوي على بيانات المستخدم
+  /// تعرض الاسم، رقم الهاتف، والأيام المتبقية على الاشتراك
+  Widget _buildInfoCard(UserState state) {
     return Container(
-      color: AppColors.primaryColor.withValues(alpha: 0.1),
-      child: Icon(Icons.person, size: 60, color: AppColors.primaryColor),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // الاسم
+          ProfileInfoItem(
+            icon: Icons.person_outline,
+            label: 'الاسم',
+            value: state.name,
+          ),
+          const SizedBox(height: 24),
+
+          // رقم الهاتف
+          ProfileInfoItem(
+            icon: Icons.phone_outlined,
+            label: 'رقم الهاتف',
+            value: state.phone,
+          ),
+          const SizedBox(height: 24),
+
+          // الأيام المتبقية على الاشتراك
+          SubscriptionInfoCard(remainingDays: state.remainingDays),
+        ],
+      ),
+    );
+  }
+
+  /// بناء زر تسجيل الخروج
+  /// زر OutlinedButton مع تصميم مخصص
+  Widget _buildLogoutButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: OutlinedButton(
+        onPressed: _handleLogout,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColors.primaryColor, width: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          'تسجيل الخروج',
+          style: AppStyles.mainTextStyle.copyWith(
+            fontSize: 16,
+            color: AppColors.primaryColor,
+          ),
+        ),
+      ),
     );
   }
 }

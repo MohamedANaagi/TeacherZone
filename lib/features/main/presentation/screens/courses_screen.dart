@@ -1,101 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
+import '../../../courses/presentation/cubit/courses_cubit.dart';
+import '../../../courses/presentation/cubit/courses_state.dart';
 
 class CoursesScreen extends StatelessWidget {
   const CoursesScreen({super.key});
-
-  // بيانات وهمية للكورسات - قدرات كمي
-  static final List<Map<String, dynamic>> courses = [
-    {
-      'id': '1',
-      'title': 'دورة تأسيس قدرات كمي - الجزء الأول',
-      'description': 'دورة تأسيسية شاملة تغطي الأساسيات في القدرات الكمية',
-      'instructor': 'د. أحمد محمد',
-      'lessonsCount': 15,
-      'duration': '20 ساعة',
-      'progress': 60,
-      'image': 'math',
-      'color': AppColors.courseColor.value,
-    },
-    {
-      'id': '2',
-      'title': 'دورة تأسيس قدرات كمي - الجزء الثاني',
-      'description': 'استكمال دورة التأسيس مع التركيز على التطبيقات العملية',
-      'instructor': 'د. سارة علي',
-      'lessonsCount': 20,
-      'duration': '25 ساعة',
-      'progress': 30,
-      'image': 'math',
-      'color': AppColors.courseColorLight.value,
-    },
-    {
-      'id': '3',
-      'title': 'دورة قدرات كمي - المستوى المتقدم',
-      'description': 'دورة متقدمة للطلاب الذين أكملوا التأسيس',
-      'instructor': 'د. خالد حسن',
-      'lessonsCount': 18,
-      'duration': '22 ساعة',
-      'progress': 0,
-      'image': 'math',
-      'color': AppColors.courseColorDark.value,
-    },
-    {
-      'id': '4',
-      'title': 'دورة قدرات كمي - حل المسائل',
-      'description': 'دورة متخصصة في حل المسائل المعقدة في القدرات الكمية',
-      'instructor': 'م. محمد ناجي',
-      'lessonsCount': 12,
-      'duration': '15 ساعة',
-      'progress': 45,
-      'image': 'math',
-      'color': AppColors.courseColor.value,
-    },
-    {
-      'id': '5',
-      'title': 'دورة تأسيس قدرات كمي - الجزء الثالث',
-      'description': 'استكمال دورة التأسيس مع التركيز على المهارات المتقدمة',
-      'instructor': 'د. فاطمة أحمد',
-      'lessonsCount': 16,
-      'duration': '18 ساعة',
-      'progress': 0,
-      'image': 'math',
-      'color': AppColors.courseColorLight.value,
-    },
-    {
-      'id': '6',
-      'title': 'دورة قدرات كمي - المراجعة النهائية',
-      'description': 'دورة مراجعة شاملة لجميع مواضيع القدرات الكمية',
-      'instructor': 'د. يوسف خالد',
-      'lessonsCount': 10,
-      'duration': '12 ساعة',
-      'progress': 0,
-      'image': 'math',
-      'color': AppColors.courseColorDark.value,
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: CoursesScreen.courses.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: CoursesScreen.courses.length,
-              cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
-              itemBuilder: (context, index) {
-                return RepaintBoundary(
-                  child: _buildCourseCard(
-                    context,
-                    CoursesScreen.courses[index],
+      body: BlocBuilder<CoursesCubit, CoursesState>(
+        builder: (context, state) {
+          if (state.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 80,
+                    color: AppColors.textLight,
                   ),
-                );
-              },
-            ),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.error!,
+                    style: AppStyles.textSecondaryStyle.copyWith(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<CoursesCubit>().loadCourses();
+                    },
+                    child: const Text('إعادة المحاولة'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (state.courses.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: state.courses.length,
+            cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
+            itemBuilder: (context, index) {
+              return RepaintBoundary(
+                child: _buildCourseCard(context, state.courses[index]),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

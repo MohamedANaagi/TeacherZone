@@ -6,7 +6,7 @@ class UserModel extends User {
   UserModel({
     required super.id,
     required super.name,
-    required super.email,
+    required super.phone,
     super.code,
     super.subscriptionEndDate,
   });
@@ -40,7 +40,7 @@ class UserModel extends User {
     return UserModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
       code: json['code']?.toString(),
       subscriptionEndDate: subscriptionEndDate,
     );
@@ -51,7 +51,7 @@ class UserModel extends User {
     return {
       'id': id,
       'name': name,
-      'email': email,
+      'phone': phone,
       if (code != null) 'code': code,
       if (subscriptionEndDate != null)
         'subscriptionEndDate': subscriptionEndDate!.toIso8601String(),
@@ -63,7 +63,7 @@ class UserModel extends User {
     return User(
       id: id,
       name: name,
-      email: email,
+      phone: phone,
       code: code,
       subscriptionEndDate: subscriptionEndDate,
     );

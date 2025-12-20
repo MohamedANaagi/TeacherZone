@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
-import '../../../../../core/cubit/user_state.dart';
+import '../../../user/presentation/cubit/user_state.dart';
 
 class UserCardWidget extends StatelessWidget {
   final UserState state;
@@ -37,7 +37,7 @@ class UserCardWidget extends StatelessWidget {
             Expanded(
               child: _UserInfo(
                 name: state.name,
-                email: state.email,
+                phone: state.phone,
                 remainingDays: state.remainingDays,
               ),
             ),
@@ -100,12 +100,12 @@ class _DefaultAvatar extends StatelessWidget {
 
 class _UserInfo extends StatelessWidget {
   final String? name;
-  final String? email;
+  final String? phone;
   final int remainingDays;
 
   const _UserInfo({
     required this.name,
-    required this.email,
+    required this.phone,
     required this.remainingDays,
   });
 
@@ -130,10 +130,10 @@ class _UserInfo extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        if (email != null) ...[
+        if (phone != null) ...[
           const SizedBox(height: 4),
           Text(
-            email!,
+            phone!,
             style: AppStyles.subTextStyle.copyWith(
               color: AppColors.secondaryColor.withValues(alpha: 0.7),
               fontSize: 12,

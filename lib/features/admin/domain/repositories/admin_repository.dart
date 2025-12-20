@@ -7,6 +7,7 @@ abstract class AdminRepository {
   Future<void> addCode(CodeModel code);
   Future<List<CodeModel>> getCodes();
   Future<void> deleteCode(String codeId);
+  Future<bool> validateCode(String code);
 
   // Courses
   Future<void> addCourse(CourseModel course);
