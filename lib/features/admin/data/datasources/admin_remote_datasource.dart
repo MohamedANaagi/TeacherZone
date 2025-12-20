@@ -10,6 +10,7 @@ abstract class AdminRemoteDataSource {
   Future<List<CodeModel>> getCodes();
   Future<void> deleteCode(String codeId);
   Future<bool> validateCode(String code);
+  Future<CodeModel?> getCodeByCode(String code);
 
   // Courses
   Future<void> addCourse(CourseModel course);
@@ -85,6 +86,28 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       return snapshot.docs.isNotEmpty;
     } catch (e) {
       throw ServerException('فشل التحقق من الكود: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<CodeModel?> getCodeByCode(String code) async {
+    try {
+      // البحث عن الكود في Firestore
+      final snapshot = await firestore
+          .collection('codes')
+          .where('code', isEqualTo: code.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      // إذا وجد الكود، إرجاع CodeModel
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final doc = snapshot.docs.first;
+      return CodeModel.fromFirestore(doc.id, doc.data());
+    } catch (e) {
+      throw ServerException('فشل جلب بيانات الكود: ${e.toString()}');
     }
   }
 

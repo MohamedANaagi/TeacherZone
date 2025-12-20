@@ -7,7 +7,6 @@ import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
-import '../widgets/custom_text_field.dart';
 import '../widgets/custom_code_field.dart';
 import '../widgets/login_app_logo.dart';
 import '../widgets/login_app_title.dart';
@@ -30,8 +29,6 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     with TickerProviderStateMixin {
   // Controllers لحقول الإدخال
   final TextEditingController _codeController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
   final formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
@@ -105,8 +102,6 @@ class _CodeInputScreenState extends State<CodeInputScreen>
   void dispose() {
     // تنظيف جميع Controllers عند تدمير الشاشة
     _codeController.dispose();
-    _nameController.dispose();
-    _phoneController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
     _scaleController.dispose();
@@ -135,15 +130,9 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     try {
       // جمع البيانات من الحقول
       final code = _codeController.text.trim();
-      final name = _nameController.text.trim();
-      final phone = _phoneController.text.trim();
 
       // استدعاء LoginUseCase لتسجيل الدخول
-      final user = await InjectionContainer.loginUseCase(
-        code: code,
-        name: name,
-        phone: phone,
-      );
+      final user = await InjectionContainer.loginUseCase(code: code);
 
       // حفظ بيانات المستخدم في UserCubit
       if (!mounted) return;
@@ -187,50 +176,25 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     }
   }
 
-  /// Validator للتحقق من صحة الاسم
-  /// يتحقق من أن الحقل غير فارغ
-  String? _validateName(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'من فضلك أدخل اسمك';
-    }
-    return null;
-  }
-
-  /// Validator للتحقق من صحة رقم الهاتف
-  /// يتحقق من أن الحقل غير فارغ وأنه يحتوي على أرقام فقط
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'من فضلك أدخل رقم هاتفك';
-    }
-    // إزالة جميع الأحرف غير الرقمية للتحقق
-    final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
-    if (cleanPhone.length < 10) {
-      return 'رقم الهاتف يجب أن يحتوي على 10 أرقام على الأقل';
-    }
-    if (cleanPhone.length > 15) {
-      return 'رقم الهاتف يجب ألا يتجاوز 15 رقم';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: RepaintBoundary(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.primaryColor,
-                AppColors.primaryDark,
-                AppColors.primaryColor,
-              ],
-            ),
+      backgroundColor: AppColors.primaryColor,
+      body: Container(
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primaryColor,
+              AppColors.primaryDark,
+              AppColors.primaryColor,
+            ],
           ),
-          child: SafeArea(child: _buildLoginContent()),
         ),
+        child: SafeArea(child: RepaintBoundary(child: _buildLoginContent())),
       ),
     );
   }
@@ -271,14 +235,6 @@ class _CodeInputScreenState extends State<CodeInputScreen>
               ),
               const SizedBox(height: 50),
 
-              // حقل الاسم
-              _buildNameField(),
-              const SizedBox(height: 20),
-
-              // حقل رقم الهاتف
-              _buildPhoneField(),
-              const SizedBox(height: 20),
-
               // حقل الكود
               _buildCodeField(),
               const SizedBox(height: 40),
@@ -304,57 +260,14 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     );
   }
 
-  /// بناء حقل الإدخال للاسم مع تأثيرات animation
-  Widget _buildNameField() {
+  /// بناء حقل الإدخال للكود مع تأثيرات animation
+  Widget _buildCodeField() {
     return AnimatedFormField(
       slideController: _slideController,
       fadeController: _fadeController,
       slideIntervalStart: 0.3,
       slideIntervalEnd: 1.0,
       fadeIntervalStart: 0.3,
-      fadeIntervalEnd: 1.0,
-      slideBegin: const Offset(0, 0.15),
-      child: CustomTextField(
-        controller: _nameController,
-        hintText: 'أدخل اسمك',
-        icon: Icons.person_outline,
-        textAlign: TextAlign.right,
-        textDirection: TextDirection.rtl,
-        validator: _validateName,
-      ),
-    );
-  }
-
-  /// بناء حقل الإدخال لرقم الهاتف مع تأثيرات animation
-  Widget _buildPhoneField() {
-    return AnimatedFormField(
-      slideController: _slideController,
-      fadeController: _fadeController,
-      slideIntervalStart: 0.3,
-      slideIntervalEnd: 1.0,
-      fadeIntervalStart: 0.4,
-      fadeIntervalEnd: 1.0,
-      slideBegin: const Offset(0, 0.2),
-      child: CustomTextField(
-        controller: _phoneController,
-        hintText: 'أدخل رقم هاتفك',
-        icon: Icons.phone_outlined,
-        textAlign: TextAlign.right,
-        textDirection: TextDirection.rtl,
-        keyboardType: TextInputType.phone,
-        validator: _validatePhone,
-      ),
-    );
-  }
-
-  /// بناء حقل الإدخال للكود مع تأثيرات animation
-  Widget _buildCodeField() {
-    return AnimatedFormField(
-      slideController: _slideController,
-      fadeController: _fadeController,
-      slideIntervalStart: 0.4,
-      slideIntervalEnd: 1.0,
-      fadeIntervalStart: 0.5,
       fadeIntervalEnd: 1.0,
       slideBegin: const Offset(0, 0.2),
       child: CustomCodeField(controller: _codeController),

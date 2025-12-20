@@ -1,5 +1,7 @@
+import 'package:class_code/features/user/presentation/cubit/user_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
@@ -56,6 +58,10 @@ class AdminMainScreen extends StatelessWidget {
               context.push(AppRouters.adminManageVideosScreen);
             },
           ),
+          const SizedBox(height: 32),
+
+          // زر تسجيل الخروج
+          _buildLogoutButton(context),
         ],
       ),
     );
@@ -136,5 +142,102 @@ class AdminMainScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// بناء زر تسجيل الخروج
+  /// يقوم بمسح بيانات المستخدم وإعادة التوجيه لصفحة تسجيل الدخول
+  Widget _buildLogoutButton(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.secondaryColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowColor,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _handleLogout(context),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout, color: AppColors.errorColor, size: 24),
+                const SizedBox(width: 12),
+                Text(
+                  'تسجيل الخروج',
+                  style: AppStyles.subHeadingStyle.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.errorColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// معالجة تسجيل الخروج
+  /// يقوم بمسح بيانات المستخدم وإعادة التوجيه لصفحة تسجيل الدخول
+  Future<void> _handleLogout(BuildContext context) async {
+    // عرض تأكيد قبل تسجيل الخروج
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('تأكيد تسجيل الخروج', style: AppStyles.subHeadingStyle),
+        content: Text(
+          'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
+          style: AppStyles.textSecondaryStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'إلغاء',
+              style: AppStyles.textSecondaryStyle.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'تسجيل الخروج',
+              style: AppStyles.textSecondaryStyle.copyWith(
+                color: AppColors.errorColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      // مسح بيانات المستخدم
+      final userCubit = context.read<UserCubit>();
+      await userCubit.clearUserData();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تسجيل الخروج'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+        // إعادة التوجيه لصفحة تسجيل الدخول
+        context.go(AppRouters.codeInputScreen);
+      }
+    }
   }
 }

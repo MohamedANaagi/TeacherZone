@@ -7,15 +7,37 @@ class AddCodeUseCase {
 
   AddCodeUseCase(this.repository);
 
-  Future<void> call({required String code, String? description}) async {
+  Future<void> call({
+    required String code,
+    required String name,
+    required String phone,
+    String? description,
+  }) async {
     // Validation
     if (code.trim().isEmpty) {
       throw ValidationException('الكود مطلوب');
+    }
+    if (name.trim().isEmpty) {
+      throw ValidationException('الاسم مطلوب');
+    }
+    if (phone.trim().isEmpty) {
+      throw ValidationException('رقم الهاتف مطلوب');
+    }
+
+    // التحقق من صحة رقم الهاتف
+    final phoneRegex = RegExp(r'^[0-9]{10,15}$');
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (!phoneRegex.hasMatch(cleanPhone)) {
+      throw ValidationException(
+        'رقم الهاتف غير صحيح. يجب أن يحتوي على 10-15 رقم',
+      );
     }
 
     final codeModel = CodeModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       code: code.trim(),
+      name: name.trim(),
+      phone: cleanPhone,
       description: description?.trim(),
       createdAt: DateTime.now(),
     );

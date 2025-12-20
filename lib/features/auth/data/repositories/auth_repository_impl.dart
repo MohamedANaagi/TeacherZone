@@ -11,17 +11,9 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<User> login({
-    required String code,
-    required String name,
-    required String phone,
-  }) async {
+  Future<User> login({required String code}) async {
     try {
-      final userModel = await remoteDataSource.login(
-        code: code,
-        name: name,
-        phone: phone,
-      );
+      final userModel = await remoteDataSource.login(code: code);
       return userModel.toEntity();
     } on AppException {
       rethrow;

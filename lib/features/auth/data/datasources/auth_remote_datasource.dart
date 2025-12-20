@@ -7,11 +7,8 @@ import '../../../../core/errors/exceptions.dart';
 /// يعرف العمليات للتعامل مع API
 abstract class AuthRemoteDataSource {
   /// تسجيل الدخول باستخدام الكود
-  Future<UserModel> login({
-    required String code,
-    required String name,
-    required String phone,
-  });
+  /// يتم جلب الاسم ورقم الهاتف المرتبطين بالكود من Firestore
+  Future<UserModel> login({required String code});
 
   /// تسجيل الخروج
   Future<void> logout();
@@ -33,34 +30,31 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// تسجيل الدخول باستخدام الكود
   ///
   /// الخطوات:
-  /// 1. التحقق من صحة الكود من Firestore عبر AdminRepository
-  /// 2. إذا كان الكود صحيحاً، إنشاء UserModel مع بيانات المستخدم
-  /// 3. حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
-  /// 4. إرجاع UserModel
+  /// 1. جلب بيانات الكود من Firestore عبر AdminRepository.getCodeByCode()
+  /// 2. إذا كان الكود موجوداً، استخراج الاسم ورقم الهاتف المرتبطين به
+  /// 3. إنشاء UserModel مع بيانات المستخدم من الكود
+  /// 4. حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
+  /// 5. إرجاع UserModel
   ///
   /// يرمي AuthException إذا كان الكود غير صحيح
   @override
-  Future<UserModel> login({
-    required String code,
-    required String name,
-    required String phone,
-  }) async {
+  Future<UserModel> login({required String code}) async {
     try {
-      // التحقق من صحة الكود من Firestore
-      final isValidCode = await adminRepository.validateCode(code);
+      // جلب بيانات الكود من Firestore
+      final codeModel = await adminRepository.getCodeByCode(code);
 
-      if (!isValidCode) {
+      if (codeModel == null) {
         throw AuthException('الكود المدخل غير صحيح أو غير موجود');
       }
 
       // حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
       final subscriptionEndDate = DateTime.now().add(const Duration(days: 30));
 
-      // إنشاء UserModel مع معرف فريد
+      // إنشاء UserModel مع معرف فريد وبيانات المستخدم من الكود
       return UserModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        phone: phone,
+        name: codeModel.name,
+        phone: codeModel.phone,
         code: code,
         subscriptionEndDate: subscriptionEndDate,
       );
