@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
+import '../../../../../core/services/video_progress_service.dart';
 import '../../../admin/data/models/video_model.dart';
 import 'videos_state.dart';
 
@@ -13,15 +14,15 @@ class VideosCubit extends Cubit<VideosState> {
   /// تحميل فيديوهات الكورس من Firestore
   ///
   /// [courseId] - معرف الكورس المراد جلب فيديوهاته
+  /// [userCode] - كود المستخدم (لتحميل حالة المشاهدة المحفوظة)
   ///
   /// الخطوات:
   /// 1. تفعيل حالة التحميل للكورس المحدد
   /// 2. جلب الفيديوهات من AdminRepository باستخدام courseId
-  /// 3. تحويل VideoModel إلى Map<String, dynamic> للتوافق مع State
-  /// 4. إضافة معلومات إضافية مثل isWatched و hasQuiz
-  /// 5. تحديث State بالفيديوهات المحملة
-  /// 6. في حالة الخطأ، حفظ رسالة الخطأ في State
-  Future<void> loadCourseVideos(String courseId) async {
+  /// 3. تحويل VideoModel إلى Map<String, dynamic> مع تحميل حالة المشاهدة المحفوظة
+  /// 4. تحديث State بالفيديوهات المحملة
+  /// 5. في حالة الخطأ، حفظ رسالة الخطأ في State
+  Future<void> loadCourseVideos(String courseId, {String? userCode}) async {
     emit(
       state.copyWith(
         courseId: courseId,
@@ -35,12 +36,30 @@ class VideosCubit extends Cubit<VideosState> {
       final videoModels = await InjectionContainer.adminRepo
           .getVideosByCourseId(courseId);
 
+      // جلب الفيديوهات المشاهدة المحفوظة (إن وجد كود)
+      Set<String> watchedVideos = {};
+      if (userCode != null && userCode.isNotEmpty) {
+        watchedVideos = await VideoProgressService.getWatchedVideosForCourse(
+          code: userCode,
+          courseId: courseId,
+        );
+        debugPrint('تم تحميل ${watchedVideos.length} فيديو مشاهد للكود: $userCode');
+      }
+
       // تحويل VideoModel إلى Map<String, dynamic> مع إضافة معلومات إضافية
-      final videos = videoModels.asMap().entries.map((entry) {
-        final index = entry.key;
-        final video = entry.value;
-        return _videoModelToMap(video, index + 1);
-      }).toList();
+      final videos = await Future.wait(
+        videoModels.asMap().entries.map((entry) async {
+          final index = entry.key;
+          final video = entry.value;
+          return await _videoModelToMap(
+            video,
+            index + 1,
+            courseId: courseId,
+            userCode: userCode,
+            watchedVideos: watchedVideos,
+          );
+        }),
+      );
 
       emit(
         state.copyWith(
@@ -74,12 +93,28 @@ class VideosCubit extends Cubit<VideosState> {
   ///
   /// [video] - VideoModel المراد تحويله
   /// [order] - ترتيب الفيديو في القائمة
+  /// [courseId] - معرف الكورس
+  /// [userCode] - كود المستخدم (لتحميل حالة المشاهدة)
+  /// [watchedVideos] - Set من معرفات الفيديوهات المشاهدة
   ///
   /// يعيد Map يحتوي على جميع بيانات الفيديو مع إضافة:
   /// - order: ترتيب الفيديو
-  /// - isWatched: false (افتراضي)
-  /// - hasQuiz: false (افتراضي) - TODO: يمكن إضافته في VideoModel
-  Map<String, dynamic> _videoModelToMap(VideoModel video, int order) {
+  /// - isWatched: حالة المشاهدة المحفوظة (من SharedPreferences)
+  /// - hasQuiz: false (افتراضي)
+  Future<Map<String, dynamic>> _videoModelToMap(
+    VideoModel video,
+    int order, {
+    required String courseId,
+    String? userCode,
+    Set<String> watchedVideos = const {},
+  }) async {
+    // التحقق من حالة المشاهدة المحفوظة
+    bool isWatched = false;
+    if (userCode != null && userCode.isNotEmpty) {
+      // استخدام Set للتحقق السريع
+      isWatched = watchedVideos.contains(video.id);
+    }
+
     return {
       'id': video.id,
       'title': video.title,
@@ -87,9 +122,8 @@ class VideosCubit extends Cubit<VideosState> {
       'url': video.url,
       'description': video.description,
       'order': order,
-      'isWatched':
-          false, // TODO: يمكن جلب isWatched من Firestore أو SharedPreferences
-      'hasQuiz': false, // TODO: يمكن إضافة hasQuiz في VideoModel
+      'isWatched': isWatched,
+      'hasQuiz': false,
     };
   }
 
@@ -98,16 +132,32 @@ class VideosCubit extends Cubit<VideosState> {
   /// [courseId] - معرف الكورس
   /// [videoId] - معرف الفيديو المراد تحديث حالته
   /// [isWatched] - حالة المشاهدة (اختياري، إذا لم يتم تمريره يتم toggle الحالة الحالية)
+  /// [userCode] - كود المستخدم (لحفظ الحالة في SharedPreferences)
   ///
-  /// يحدث حالة المشاهدة للفيديو في State (محلياً فقط)
-  /// TODO: يمكن حفظ isWatched في Firestore أو SharedPreferences في المستقبل
-  void markVideoAsWatched(String courseId, String videoId, {bool? isWatched}) {
+  /// يحدث حالة المشاهدة للفيديو في State ويحفظها في SharedPreferences
+  void markVideoAsWatched(
+    String courseId,
+    String videoId, {
+    bool? isWatched,
+    String? userCode,
+  }) {
     final videos = state.getVideosForCourse(courseId);
     final updatedVideos = videos.map((video) {
       if (video['id'] == videoId) {
         // إذا لم يتم تمرير isWatched، قم بـ toggle الحالة الحالية
         final currentWatched = video['isWatched'] as bool;
         final newWatched = isWatched ?? !currentWatched;
+        
+        // حفظ الحالة في SharedPreferences إذا كان هناك كود
+        if (userCode != null && userCode.isNotEmpty) {
+          VideoProgressService.saveVideoWatchedStatus(
+            code: userCode,
+            courseId: courseId,
+            videoId: videoId,
+            isWatched: newWatched,
+          );
+        }
+        
         return {...video, 'isWatched': newWatched};
       }
       return video;

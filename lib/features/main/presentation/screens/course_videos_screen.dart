@@ -8,6 +8,7 @@ import '../../../videos/presentation/cubit/videos_cubit.dart';
 import '../../../videos/presentation/cubit/videos_state.dart';
 import '../../../courses/presentation/cubit/courses_cubit.dart';
 import '../../../courses/presentation/cubit/courses_state.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
 import '../widgets/video_item_widget.dart';
 
 class CourseVideosScreen extends StatefulWidget {
@@ -27,7 +28,11 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final courseId = widget.course['id'] as String;
-        context.read<VideosCubit>().loadCourseVideos(courseId);
+        final userCode = context.read<UserCubit>().state.code;
+        context.read<VideosCubit>().loadCourseVideos(
+          courseId,
+          userCode: userCode,
+        );
       }
     });
   }
@@ -210,9 +215,10 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: () {
+                                    final userCode = context.read<UserCubit>().state.code;
                                     context
                                         .read<VideosCubit>()
-                                        .loadCourseVideos(courseId);
+                                        .loadCourseVideos(courseId, userCode: userCode);
                                   },
                                   child: const Text('إعادة المحاولة'),
                                 ),
@@ -265,9 +271,11 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                     // عند الرجوع من شاشة الفيديو، حدّث حالة المشاهدة
                                     if (mounted) {
                                       final videosCubit = context.read<VideosCubit>();
+                                      final userCode = context.read<UserCubit>().state.code;
                                       videosCubit.markVideoAsWatched(
                                         courseId,
                                         video['id'] as String,
+                                        userCode: userCode,
                                       );
                                       // تحديث التقدم
                                       _updateCourseProgress(context, courseId);
@@ -275,7 +283,12 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                   },
                                   onWatchedChanged: (courseId, videoId) {
                                     final videosCubit = context.read<VideosCubit>();
-                                    videosCubit.markVideoAsWatched(courseId, videoId);
+                                    final userCode = context.read<UserCubit>().state.code;
+                                    videosCubit.markVideoAsWatched(
+                                      courseId,
+                                      videoId,
+                                      userCode: userCode,
+                                    );
                                     // تحديث التقدم
                                     _updateCourseProgress(context, courseId);
                                   },
@@ -332,11 +345,13 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
     );
   }
 
-  /// تحديث تقدم الكورس بناءً على الفيديوهات المشاهدة
+  /// تحديث تقدم الكورس بناءً على الفيديوهات المشاهدة المحفوظة
   void _updateCourseProgress(BuildContext context, String courseId) {
-    final videosCubit = context.read<VideosCubit>();
-    final progress = videosCubit.calculateCourseProgress(courseId);
-    context.read<CoursesCubit>().updateCourseProgress(courseId, progress);
+    final userCode = context.read<UserCubit>().state.code;
+    context.read<CoursesCubit>().updateCourseProgress(
+      courseId,
+      userCode: userCode,
+    );
   }
 
   IconData _getCourseIcon(String image) {

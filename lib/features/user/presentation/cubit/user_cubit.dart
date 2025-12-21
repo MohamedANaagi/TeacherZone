@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/image_storage_service.dart';
 import 'user_state.dart';
 
 class UserCubit extends Cubit<UserState> {
@@ -14,6 +15,7 @@ class UserCubit extends Cubit<UserState> {
     String? name,
     String? phone,
     String? imagePath,
+    String? code,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
   }) async {
@@ -21,6 +23,7 @@ class UserCubit extends Cubit<UserState> {
       name: name,
       phone: phone,
       imagePath: imagePath,
+      code: code,
       subscriptionEndDate: subscriptionEndDate,
       isLoggedIn: isLoggedIn,
     );
@@ -50,11 +53,18 @@ class UserCubit extends Cubit<UserState> {
         await prefs.remove('user_phone');
       }
 
-      // حفظ أو مسح مسار الصورة
+      // حفظ أو مسح مسار الصورة (مسار محلي في الجهاز)
       if (state.imagePath != null) {
         await prefs.setString('user_image_path', state.imagePath!);
       } else {
         await prefs.remove('user_image_path');
+      }
+
+      // حفظ أو مسح الكود
+      if (state.code != null) {
+        await prefs.setString('user_code', state.code!);
+      } else {
+        await prefs.remove('user_code');
       }
 
       // حفظ أو مسح تاريخ انتهاء الاشتراك
@@ -83,11 +93,21 @@ class UserCubit extends Cubit<UserState> {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString('user_name');
       final phone = prefs.getString('user_phone');
-      final imagePath = prefs.getString('user_image_path');
+      final code = prefs.getString('user_code');
       final subscriptionDateString = prefs.getString('subscription_end_date');
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
       debugPrint('تحميل بيانات المستخدم - isLoggedIn: $isLoggedIn');
+
+      // محاولة تحميل الصورة المحفوظة بناءً على الكود
+      String? imagePath;
+      if (code != null && code.isNotEmpty) {
+        imagePath = await ImageStorageService.getProfileImagePath(code: code);
+        // إذا لم توجد صورة محفوظة، استخدم المسار من SharedPreferences (للتوافق مع البيانات القديمة)
+        imagePath ??= prefs.getString('user_image_path');
+      } else {
+        imagePath = prefs.getString('user_image_path');
+      }
 
       DateTime? subscriptionEndDate;
       if (subscriptionDateString != null) {
@@ -103,6 +123,7 @@ class UserCubit extends Cubit<UserState> {
           name: name,
           phone: phone,
           imagePath: imagePath,
+          code: code,
           subscriptionEndDate: subscriptionEndDate,
           isLoggedIn: isLoggedIn,
         ),
@@ -113,10 +134,22 @@ class UserCubit extends Cubit<UserState> {
   }
 
   /// مسح بيانات المستخدم
+  /// ملاحظة: لا نحذف الصورة أو حالات المشاهدة لأن المستخدم قد يعود بنفس الكود
   Future<void> clearUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      
+      // حذف بيانات المستخدم فقط (وليس حالات المشاهدة أو الصور)
+      await prefs.remove('user_name');
+      await prefs.remove('user_phone');
+      await prefs.remove('user_image_path');
+      await prefs.remove('user_code');
+      await prefs.remove('subscription_end_date');
+      await prefs.setBool('is_logged_in', false);
+      
+      // ملاحظة: لا نحذف الصورة المحلية - تبقى محفوظة بناءً على الكود
+      // ملاحظة: لا نحذف حالات المشاهدة - تبقى محفوظة بناءً على الكود
+      // حتى لو سجل المستخدم خروج، الصورة وحالات المشاهدة تبقى للكود
 
       emit(const UserState(isLoggedIn: false));
     } catch (e) {

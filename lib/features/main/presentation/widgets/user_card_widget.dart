@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../user/presentation/cubit/user_state.dart';
@@ -70,16 +70,21 @@ class _UserAvatar extends StatelessWidget {
         ],
       ),
       child: ClipOval(
-        child: imagePath != null
-            ? Image.file(
-                File(imagePath!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return _DefaultAvatar();
-                },
-              )
+        child: imagePath != null && imagePath!.isNotEmpty
+            ? _buildLocalImage(imagePath!)
             : _DefaultAvatar(),
       ),
+    );
+  }
+
+  /// بناء الصورة من المسار المحلي
+  Widget _buildLocalImage(String imagePath) {
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return _DefaultAvatar();
+      },
     );
   }
 }

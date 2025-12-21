@@ -6,9 +6,27 @@ import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
 import '../../../courses/presentation/cubit/courses_cubit.dart';
 import '../../../courses/presentation/cubit/courses_state.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
 
-class CoursesScreen extends StatelessWidget {
+class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
+
+  @override
+  State<CoursesScreen> createState() => _CoursesScreenState();
+}
+
+class _CoursesScreenState extends State<CoursesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // تحميل الكورسات مع الكود عند فتح الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final userCode = context.read<UserCubit>().state.code;
+        context.read<CoursesCubit>().loadCourses(userCode: userCode);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +56,10 @@ class CoursesScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      context.read<CoursesCubit>().loadCourses();
+                      final userCode = context.read<UserCubit>().state.code;
+                      context.read<CoursesCubit>().loadCourses(
+                        userCode: userCode,
+                      );
                     },
                     child: const Text('إعادة المحاولة'),
                   ),
@@ -101,12 +122,20 @@ class CoursesScreen extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             // الانتقال لصفحة فيديوهات الكورس
-            context.push(
+            await context.push(
               '${AppRouters.courseVideosScreen}/${course['id']}',
               extra: course,
             );
+            // عند الرجوع من شاشة الفيديوهات، حدّث التقدم
+            if (mounted) {
+              final userCode = context.read<UserCubit>().state.code;
+              context.read<CoursesCubit>().updateCourseProgress(
+                course['id'] as String,
+                userCode: userCode,
+              );
+            }
           },
           borderRadius: BorderRadius.circular(20),
           child: Column(

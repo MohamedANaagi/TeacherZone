@@ -51,6 +51,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final subscriptionEndDate = DateTime.now().add(const Duration(days: 30));
 
       // إنشاء UserModel مع معرف فريد وبيانات المستخدم من الكود
+      // ملاحظة: رابط الصورة سيتم جلبه من UserCubit عند الحاجة
       return UserModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: codeModel.name,

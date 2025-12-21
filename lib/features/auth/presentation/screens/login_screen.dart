@@ -7,6 +7,7 @@ import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
+import '../../../../../core/services/image_storage_service.dart';
 import '../widgets/custom_code_field.dart';
 import '../widgets/login_app_logo.dart';
 import '../widgets/login_app_title.dart';
@@ -133,12 +134,29 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       // استدعاء LoginUseCase لتسجيل الدخول
       final user = await InjectionContainer.loginUseCase(code: code);
 
+      // محاولة تحميل الصورة المحفوظة محلياً بناءً على الكود
+      String? profileImagePath;
+      try {
+        debugPrint('محاولة تحميل الصورة للكود: $code');
+        profileImagePath = await ImageStorageService.getProfileImagePath(code: code);
+        if (profileImagePath != null) {
+          debugPrint('تم العثور على الصورة: $profileImagePath');
+        } else {
+          debugPrint('لم يتم العثور على صورة للكود: $code');
+        }
+      } catch (e) {
+        // تجاهل الأخطاء عند جلب الصورة المحلية
+        debugPrint('خطأ في جلب الصورة المحلية: $e');
+      }
+
       // حفظ بيانات المستخدم في UserCubit
       if (!mounted) return;
       final userCubit = context.read<UserCubit>();
       await userCubit.updateUser(
         name: user.name,
         phone: user.phone,
+        code: code,
+        imagePath: profileImagePath,
         subscriptionEndDate: user.subscriptionEndDate,
         isLoggedIn: true,
       );
@@ -352,9 +370,14 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
       ),
       content: TextField(
         controller: _codeController,
+        obscureText: false, // جعل النص ظاهراً بوضوح
         decoration: InputDecoration(
           labelText: 'أدخل كود الأدمن',
           labelStyle: AppStyles.textSecondaryStyle,
+          hintText: 'أدخل الكود هنا',
+          hintStyle: AppStyles.textSecondaryStyle.copyWith(
+            fontSize: 14,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: AppColors.borderColor),
@@ -367,13 +390,21 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
           ),
+          filled: true,
+          fillColor: AppColors.backgroundLight,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
         ),
         keyboardType: TextInputType.number,
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
         style: AppStyles.subTextStyle.copyWith(
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
+          letterSpacing: 2,
+          color: AppColors.textPrimary,
         ),
         autofocus: true,
         onSubmitted: (_) => _handleSubmit(),

@@ -39,14 +39,8 @@ class ProfileAvatar extends StatelessWidget {
               ],
             ),
             child: ClipOval(
-              child: imagePath != null
-                  ? Image.file(
-                      File(imagePath!),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildDefaultAvatar();
-                      },
-                    )
+              child: imagePath != null && imagePath!.isNotEmpty
+                  ? _buildLocalImage(imagePath!)
                   : _buildDefaultAvatar(),
             ),
           ),
@@ -71,6 +65,17 @@ class ProfileAvatar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// بناء الصورة من المسار المحلي
+  Widget _buildLocalImage(String imagePath) {
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return _buildDefaultAvatar();
+      },
     );
   }
 

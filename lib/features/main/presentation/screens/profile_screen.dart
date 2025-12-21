@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../../../core/services/image_storage_service.dart';
 import '../../../user/presentation/cubit/user_cubit.dart';
 import '../../../user/presentation/cubit/user_state.dart';
 import '../../../../../core/router/app_routers.dart';
@@ -24,14 +26,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// ImagePicker instance لاختيار الصور
   final ImagePicker _imagePicker = ImagePicker();
 
-  /// اختيار صورة من المعرض وتحديث صورة الملف الشخصي
+  /// اختيار صورة من المعرض وحفظها محلياً في الجهاز
   ///
   /// الخطوات:
   /// 1. فتح معرض الصور باستخدام ImagePicker
-  /// 2. عند اختيار صورة، تحديث imagePath في UserCubit
-  /// 3. في حالة حدوث خطأ، عرض رسالة خطأ للمستخدم
+  /// 2. حفظ الصورة محلياً في مجلد التطبيق بناءً على الكود
+  /// 3. تحديث imagePath في UserCubit بمسار الصورة المحلي
+  /// 4. في حالة حدوث خطأ، عرض رسالة خطأ للمستخدم
   Future<void> _pickImage() async {
     try {
+      final userCubit = context.read<UserCubit>();
+      final userCode = userCubit.state.code;
+
+      if (userCode == null || userCode.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('لا يمكن حفظ الصورة: الكود غير موجود'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 800,
@@ -40,13 +58,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (image != null && mounted) {
-        final userCubit = context.read<UserCubit>();
-        await userCubit.updateUser(imagePath: image.path);
+        try {
+          // حفظ الصورة محلياً بناءً على الكود
+          final savedPath = await ImageStorageService.saveProfileImage(
+            sourcePath: image.path,
+            code: userCode,
+          );
+
+          // تحديث مسار الصورة في UserCubit
+          await userCubit.updateUser(imagePath: savedPath);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم حفظ الصورة بنجاح'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (saveError) {
+          if (mounted) {
+            // استخراج رسالة الخطأ
+            String errorMessage = 'فشل حفظ الصورة';
+            if (saveError is Exception) {
+              errorMessage = saveError.toString().replaceFirst('Exception: ', '');
+            } else {
+              errorMessage = saveError.toString();
+            }
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          
+          debugPrint('خطأ حفظ الصورة: $saveError');
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ أثناء اختيار الصورة: $e')),
+          SnackBar(
+            content: Text('حدث خطأ أثناء اختيار الصورة: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }
