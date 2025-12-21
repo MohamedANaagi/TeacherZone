@@ -4,6 +4,7 @@ class AppRouters {
   static const String codeInputScreen = '/codeInputScreen';
   static const String mainScreen = '/mainScreen';
   static const String courseVideosScreen = '/courseVideos';
+  static const String videoPlayerScreen = '/videoPlayer';
   static const String examQuizScreen = '/examQuiz';
 
   // Admin routes

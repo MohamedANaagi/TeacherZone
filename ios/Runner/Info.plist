@@ -49,5 +49,10 @@
 	<string>نحتاج إلى الوصول إلى الصور لاختيار صورة الملف الشخصي</string>
 	<key>NSCameraUsageDescription</key>
 	<string>نحتاج إلى الوصول إلى الكاميرا لالتقاط صورة الملف الشخصي</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

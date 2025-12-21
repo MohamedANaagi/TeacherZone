@@ -5,6 +5,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/main/presentation/screens/main_screen.dart';
 import '../../features/main/presentation/screens/course_videos_screen.dart';
+import '../../features/main/presentation/screens/video_player_screen.dart';
 import '../../features/main/presentation/screens/exam_quiz_screen.dart';
 import '../../features/admin/presentation/screens/admin_main_screen.dart';
 import '../../features/admin/presentation/screens/admin_add_code_screen.dart';
@@ -54,6 +55,23 @@ class RouterGenerator {
             return MainScreen();
           }
           return CourseVideosScreen(course: course);
+        },
+      ),
+      GoRoute(
+        path: '${AppRouters.videoPlayerScreen}/:videoId',
+        name: AppRouters.videoPlayerScreen,
+        builder: (context, state) {
+          final videoData = state.extra as Map<String, dynamic>?;
+          if (videoData == null) {
+            return MainScreen();
+          }
+          return VideoPlayerScreen(
+            videoUrl: videoData['url'] as String,
+            videoTitle: videoData['title'] as String,
+            videoDescription: videoData['description'] as String?,
+            courseId: videoData['courseId'] as String,
+            videoId: state.pathParameters['videoId'] ?? '',
+          );
         },
       ),
       GoRoute(

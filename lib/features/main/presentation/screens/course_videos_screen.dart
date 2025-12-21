@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../../../core/router/app_routers.dart';
 import '../../../videos/presentation/cubit/videos_cubit.dart';
 import '../../../videos/presentation/cubit/videos_state.dart';
 import '../widgets/video_item_widget.dart';
@@ -238,7 +240,15 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                   video: video,
                                   courseColor: color,
                                   onTap: () {
-                                    _showVideoDialog(context, video, color);
+                                    context.push(
+                                      '${AppRouters.videoPlayerScreen}/${video['id']}',
+                                      extra: {
+                                        'url': video['url'] as String,
+                                        'title': video['title'] as String,
+                                        'description': video['description'] as String?,
+                                        'courseId': courseId,
+                                      },
+                                    );
                                   },
                                 ),
                               ),
@@ -285,62 +295,6 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
           Text(
             label,
             style: AppStyles.textSecondaryStyle.copyWith(fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showVideoDialog(
-    BuildContext context,
-    Map<String, dynamic> video,
-    Color courseColor,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(video['title'] as String, style: AppStyles.subHeadingStyle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: courseColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.play_circle_filled,
-                  size: 80,
-                  color: courseColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'سيتم فتح الفيديو قريباً',
-              style: AppStyles.textSecondaryStyle,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('إغلاق', style: TextStyle(color: courseColor)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: فتح الفيديو
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: courseColor),
-            child: const Text(
-              'تشغيل',
-              style: TextStyle(color: AppColors.secondaryColor),
-            ),
           ),
         ],
       ),
