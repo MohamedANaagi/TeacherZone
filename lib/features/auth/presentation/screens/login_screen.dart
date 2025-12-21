@@ -12,7 +12,6 @@ import '../widgets/login_app_logo.dart';
 import '../widgets/login_app_title.dart';
 import '../widgets/login_subtitle.dart';
 import '../widgets/login_button.dart';
-import '../widgets/admin_hidden_button.dart';
 import '../widgets/animated_form_field.dart';
 import '../widgets/error_snackbar_helper.dart';
 
@@ -210,8 +209,6 @@ class _CodeInputScreenState extends State<CodeInputScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // زر خفي للوصول إلى لوحة الإدارة
-              const AdminHiddenButton(),
               const SizedBox(height: 40),
 
               // شعار التطبيق
@@ -250,8 +247,8 @@ class _CodeInputScreenState extends State<CodeInputScreen>
               ),
               const SizedBox(height: 30),
 
-              // رابط "ليس لديك كود؟"
-              _buildNoCodeLink(),
+              // زر الأدمن
+              _buildAdminButton(),
               const SizedBox(height: 20),
             ],
           ),
@@ -274,8 +271,8 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     );
   }
 
-  /// بناء رابط "ليس لديك كود؟" مع تأثير animation
-  Widget _buildNoCodeLink() {
+  /// بناء زر الأدمن مع تأثير animation
+  Widget _buildAdminButton() {
     return FadeTransition(
       opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
@@ -285,11 +282,9 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       ),
       child: Center(
         child: TextButton(
-          onPressed: () {
-            // TODO: إضافة صفحة التواصل
-          },
+          onPressed: _showAdminDialog,
           child: Text(
-            'ليس لديك كود؟',
+            'هل أنت أدمن؟',
             style: AppStyles.subTextStyle.copyWith(
               fontSize: 15,
               color: AppColors.secondaryColor.withOpacity(0.9),
@@ -299,6 +294,120 @@ class _CodeInputScreenState extends State<CodeInputScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// عرض حوار إدخال كود الأدمن
+  void _showAdminDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return _AdminDialogContent();
+      },
+    );
+  }
+}
+
+/// Widget منفصل لإدارة حوار كود الأدمن
+class _AdminDialogContent extends StatefulWidget {
+  const _AdminDialogContent();
+
+  @override
+  State<_AdminDialogContent> createState() => _AdminDialogContentState();
+}
+
+class _AdminDialogContentState extends State<_AdminDialogContent> {
+  late final TextEditingController _codeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _codeController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  void _handleSubmit() {
+    final enteredCode = _codeController.text.trim();
+    Navigator.of(context).pop();
+    if (enteredCode == '3082002') {
+      context.push(AppRouters.adminMainScreen);
+    } else {
+      ErrorSnackBarHelper.showError(context, 'كود الأدمن غير صحيح');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.secondaryColor,
+      title: Text(
+        'كود الأدمن',
+        style: AppStyles.subHeadingStyle,
+        textDirection: TextDirection.rtl,
+      ),
+      content: TextField(
+        controller: _codeController,
+        decoration: InputDecoration(
+          labelText: 'أدخل كود الأدمن',
+          labelStyle: AppStyles.textSecondaryStyle,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.borderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
+          ),
+        ),
+        keyboardType: TextInputType.number,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        style: AppStyles.subTextStyle.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        autofocus: true,
+        onSubmitted: (_) => _handleSubmit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: Text(
+            'إلغاء',
+            style: AppStyles.textSecondaryStyle.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _handleSubmit,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Text(
+            'دخول',
+            style: AppStyles.subTextStyle.copyWith(
+              color: AppColors.secondaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+      actionsAlignment: MainAxisAlignment.spaceBetween,
     );
   }
 }
