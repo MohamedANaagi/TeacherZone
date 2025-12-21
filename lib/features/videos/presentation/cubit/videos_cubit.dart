@@ -97,18 +97,40 @@ class VideosCubit extends Cubit<VideosState> {
   ///
   /// [courseId] - معرف الكورس
   /// [videoId] - معرف الفيديو المراد تحديث حالته
+  /// [isWatched] - حالة المشاهدة (اختياري، إذا لم يتم تمريره يتم toggle الحالة الحالية)
   ///
   /// يحدث حالة المشاهدة للفيديو في State (محلياً فقط)
   /// TODO: يمكن حفظ isWatched في Firestore أو SharedPreferences في المستقبل
-  void markVideoAsWatched(String courseId, String videoId) {
+  void markVideoAsWatched(String courseId, String videoId, {bool? isWatched}) {
     final videos = state.getVideosForCourse(courseId);
     final updatedVideos = videos.map((video) {
       if (video['id'] == videoId) {
-        return {...video, 'isWatched': true};
+        // إذا لم يتم تمرير isWatched، قم بـ toggle الحالة الحالية
+        final currentWatched = video['isWatched'] as bool;
+        final newWatched = isWatched ?? !currentWatched;
+        return {...video, 'isWatched': newWatched};
       }
       return video;
     }).toList();
 
     emit(state.copyWith(courseId: courseId, videosForCourse: updatedVideos));
+  }
+
+  /// حساب نسبة التقدم للكورس بناءً على الفيديوهات المشاهدة
+  ///
+  /// [courseId] - معرف الكورس
+  ///
+  /// Returns نسبة التقدم من 0 إلى 100
+  int calculateCourseProgress(String courseId) {
+    final videos = state.getVideosForCourse(courseId);
+    if (videos.isEmpty) return 0;
+
+    final watchedCount = videos.where((video) => video['isWatched'] == true).length;
+    final totalCount = videos.length;
+    
+    if (totalCount == 0) return 0;
+    
+    final progress = (watchedCount / totalCount * 100).round();
+    return progress;
   }
 }

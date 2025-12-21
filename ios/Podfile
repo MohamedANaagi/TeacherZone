@@ -50,6 +50,10 @@ post_install do |installer|
       
       # Disable warnings for faster builds
       config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      
+      # Speed up compilation
+      config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
+      config.build_settings['COMPILER_INDEX_STORE_ENABLE'] = 'NO'
     end
   end
 end

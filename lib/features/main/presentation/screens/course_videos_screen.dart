@@ -6,6 +6,8 @@ import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
 import '../../../videos/presentation/cubit/videos_cubit.dart';
 import '../../../videos/presentation/cubit/videos_state.dart';
+import '../../../courses/presentation/cubit/courses_cubit.dart';
+import '../../../courses/presentation/cubit/courses_state.dart';
 import '../widgets/video_item_widget.dart';
 
 class CourseVideosScreen extends StatefulWidget {
@@ -35,7 +37,17 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
     final courseId = widget.course['id'] as String;
     final color = Color(widget.course['color'] as int);
 
-    return Scaffold(
+    return BlocBuilder<CoursesCubit, CoursesState>(
+      builder: (context, coursesState) {
+        // الحصول على الكورس المحدث من CoursesCubit
+        final updatedCourse = coursesState.courses.isNotEmpty
+            ? coursesState.courses.firstWhere(
+                (course) => course['id'] == courseId,
+                orElse: () => widget.course,
+              )
+            : widget.course;
+        
+        return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: CustomScrollView(
         slivers: [
@@ -149,7 +161,7 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                         _buildInfoItem(
                           icon: Icons.trending_up,
                           label: 'التقدم',
-                          value: '${widget.course['progress']}%',
+                          value: '${updatedCourse['progress']}%',
                           color: color,
                         ),
                       ],
@@ -239,8 +251,9 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                 child: VideoItemWidget(
                                   video: video,
                                   courseColor: color,
-                                  onTap: () {
-                                    context.push(
+                                  courseId: courseId,
+                                  onTap: () async {
+                                    await context.push(
                                       '${AppRouters.videoPlayerScreen}/${video['id']}',
                                       extra: {
                                         'url': video['url'] as String,
@@ -249,6 +262,22 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                         'courseId': courseId,
                                       },
                                     );
+                                    // عند الرجوع من شاشة الفيديو، حدّث حالة المشاهدة
+                                    if (mounted) {
+                                      final videosCubit = context.read<VideosCubit>();
+                                      videosCubit.markVideoAsWatched(
+                                        courseId,
+                                        video['id'] as String,
+                                      );
+                                      // تحديث التقدم
+                                      _updateCourseProgress(context, courseId);
+                                    }
+                                  },
+                                  onWatchedChanged: (courseId, videoId) {
+                                    final videosCubit = context.read<VideosCubit>();
+                                    videosCubit.markVideoAsWatched(courseId, videoId);
+                                    // تحديث التقدم
+                                    _updateCourseProgress(context, courseId);
                                   },
                                 ),
                               ),
@@ -263,6 +292,8 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
           ),
         ],
       ),
+        );
+      },
     );
   }
 
@@ -299,6 +330,13 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
         ],
       ),
     );
+  }
+
+  /// تحديث تقدم الكورس بناءً على الفيديوهات المشاهدة
+  void _updateCourseProgress(BuildContext context, String courseId) {
+    final videosCubit = context.read<VideosCubit>();
+    final progress = videosCubit.calculateCourseProgress(courseId);
+    context.read<CoursesCubit>().updateCourseProgress(courseId, progress);
   }
 
   IconData _getCourseIcon(String image) {
