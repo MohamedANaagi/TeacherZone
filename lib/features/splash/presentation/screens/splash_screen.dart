@@ -19,16 +19,14 @@ class StartScreen extends StatefulWidget {
 class _StartScreenState extends State<StartScreen>
     with TickerProviderStateMixin {
   // Animation Controllers
-  late AnimationController _mainController; // للتحكم في Animation الرئيسية
-  late AnimationController _pulseController; // للتحكم في Animation النبض
-  late AnimationController _particleController; // للتحكم في Animation الدوائر
+  late AnimationController _mainController;
+  late AnimationController _pulseController;
 
   // Animations
-  late Animation<double> _scaleAnimation; // animation للتكبير/التصغير
-  late Animation<double> _fadeAnimation; // animation للشفافية
-  late Animation<double> _rotationAnimation; // animation للدوران
-  late Animation<double> _pulseAnimation; // animation للنبض المتكرر
-  late Animation<double> _particleAnimation; // animation للدوائر في الخلفية
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -37,62 +35,56 @@ class _StartScreenState extends State<StartScreen>
     _navigateAfterDelay();
   }
 
-  /// تهيئة جميع Animation Controllers و Animations
-  /// يتم استدعاؤها مرة واحدة عند تهيئة الشاشة
+  /// تهيئة Animations
   void _initializeAnimations() {
-    // Main Animation Controller - للتحكم في Animation الرئيسية (2 ثانية)
+    // Main Animation Controller
     _mainController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1200),
     );
 
-    // Pulse Animation Controller - للتحكم في Animation النبض (1.5 ثانية، متكرر)
+    // Pulse Animation Controller - نبض خفيف
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
 
-    // Particle Animation Controller - للتحكم في Animation الدوائر (3 ثوان، متكرر)
-    _particleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    )..repeat();
-
-    // Scale Animation - من 0.0 إلى 1.0 مع تأثير elastic
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
-      ),
-    );
-
-    // Fade Animation - من 0.0 إلى 1.0 (شفافية)
+    // Fade Animation
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
       ),
     );
 
-    // Rotation Animation - دوران بسيط (0.0 إلى 0.1)
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.1).animate(
+    // Scale Animation للشعار
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.8, curve: Curves.elasticOut),
       ),
     );
 
-    // Pulse Animation - نبض من 1.0 إلى 1.1 (تكبير/تصغير)
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    // Slide Animation للعنوان
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _mainController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
     );
 
-    // Particle Animation - للدوائر في الخلفية (من 0.0 إلى 1.0)
-    _particleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _particleController, curve: Curves.linear),
+    // Pulse Animation - نبض خفيف
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
     );
 
-    // بدء Animation الرئيسية
+    // بدء Animations
     _mainController.forward();
   }
 
@@ -116,8 +108,8 @@ class _StartScreenState extends State<StartScreen>
     final userCubit = context.read<UserCubit>();
     await userCubit.loadUserData();
 
-    // انتظار 3.5 ثانية لعرض Animation قبل الانتقال
-    await Future.delayed(const Duration(milliseconds: 3400));
+    // انتظار 2.5 ثانية لعرض Animation قبل الانتقال
+    await Future.delayed(const Duration(milliseconds: 2500));
     if (!mounted) return;
 
     // التحقق من حالة تسجيل الدخول
@@ -150,10 +142,8 @@ class _StartScreenState extends State<StartScreen>
 
   @override
   void dispose() {
-    // تنظيف جميع Animation Controllers عند تدمير الشاشة
     _mainController.dispose();
     _pulseController.dispose();
-    _particleController.dispose();
     super.dispose();
   }
 
@@ -161,70 +151,29 @@ class _StartScreenState extends State<StartScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primaryColor,
-      body: Stack(
-        children: [
-          // دوائر متحركة في الخلفية
-          ...List.generate(5, (index) => _buildAnimatedCircle(index)),
-
-          // المحتوى الرئيسي
-          _buildMainContent(),
-        ],
-      ),
+      body: _buildMainContent(),
     );
   }
 
   /// بناء المحتوى الرئيسي للشاشة
-  /// يحتوي على الشعار، العنوان، ومؤشر التحميل
   Widget _buildMainContent() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // الشعار مع تأثير الدوران
+          // الشعار مع animations
           _buildLogo(),
-          const SizedBox(height: 40),
+          const SizedBox(height: 50),
 
-          // العنوان مع تأثيرات متعددة (fade, scale, pulse)
+          // العنوان مع animations
           _buildTitle(),
-          const SizedBox(height: 20),
-
-          // مؤشر التحميل
-          _buildLoadingIndicator(),
         ],
       ),
     );
   }
 
-  /// بناء الشعار مع تأثير الدوران
-  /// يعرض أيقونة التطبيق داخل دائرة مع تأثير rotation
+  /// بناء الشعار مع animations
   Widget _buildLogo() {
-    return AnimatedBuilder(
-      animation: _rotationAnimation,
-      builder: (context, child) {
-        return Transform.rotate(
-          angle: _rotationAnimation.value,
-          child: Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.secondaryColor.withValues(alpha: 0.2),
-              border: Border.all(color: AppColors.secondaryColor, width: 3),
-            ),
-            child: Icon(
-              Icons.school,
-              size: 60,
-              color: AppColors.secondaryColor,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// بناء عنوان التطبيق مع تأثيرات متعددة
-  /// يجمع بين fade, scale, و pulse animations
-  Widget _buildTitle() {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: ScaleTransition(
@@ -234,20 +183,29 @@ class _StartScreenState extends State<StartScreen>
           builder: (context, child) {
             return Transform.scale(
               scale: _pulseAnimation.value,
-              child: Text(
-                'TeacherZone',
-                style: AppStyles.mainTextStyle.copyWith(
-                  color: AppColors.secondaryColor,
-                  fontSize: 42,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                  shadows: [
-                    Shadow(
-                      color: AppColors.secondaryColor.withValues(alpha: 0.5),
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      AppColors.secondaryColor.withOpacity(0.2),
+                      AppColors.secondaryColor.withOpacity(0.1),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.secondaryColor.withOpacity(0.3),
                       blurRadius: 20,
-                      offset: const Offset(0, 0),
+                      spreadRadius: 2,
                     ),
                   ],
+                ),
+                child: Icon(
+                  Icons.school,
+                  size: 55,
+                  color: AppColors.secondaryColor,
                 ),
               ),
             );
@@ -257,69 +215,23 @@ class _StartScreenState extends State<StartScreen>
     );
   }
 
-  /// بناء مؤشر التحميل
-  /// يعرض LinearProgressIndicator مع تأثير fade
-  Widget _buildLoadingIndicator() {
+  /// بناء عنوان التطبيق مع animations
+  Widget _buildTitle() {
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: SizedBox(
-        width: 200,
-        child: LinearProgressIndicator(
-          backgroundColor: AppColors.secondaryColor.withValues(alpha: 0.2),
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondaryColor),
-          minHeight: 3,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Text(
+          'TeacherZone',
+          style: AppStyles.mainTextStyle.copyWith(
+            color: AppColors.secondaryColor,
+            fontSize: 38,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+          ),
         ),
       ),
     );
   }
 
-  /// بناء الدوائر المتحركة في الخلفية
-  ///
-  /// [index] - الفهرس الخاص بالدائرة (0-4)
-  ///
-  /// يعرض 5 دوائر بأحجام ومواقع مختلفة مع تأثيرات scale و opacity متحركة
-  Widget _buildAnimatedCircle(int index) {
-    // أحجام مختلفة للدوائر
-    final sizes = [150.0, 200.0, 250.0, 180.0, 220.0];
-
-    // مواقع مختلفة للدوائر في الشاشة
-    final positions = [
-      const Alignment(-0.8, -0.8),
-      const Alignment(0.8, -0.6),
-      const Alignment(-0.6, 0.8),
-      const Alignment(0.6, 0.7),
-      const Alignment(0.0, -0.3),
-    ];
-
-    return AnimatedBuilder(
-      animation: _particleAnimation,
-      builder: (context, child) {
-        // حساب offset مختلف لكل دائرة لإنشاء تأثير متدرج
-        final offset = (index * 0.2) % 1.0;
-        final animationValue = (_particleAnimation.value + offset) % 1.0;
-
-        return Positioned.fill(
-          child: Align(
-            alignment: positions[index],
-            child: Transform.scale(
-              // scale من 0.5 إلى 1.0 بناءً على animationValue
-              scale: 0.5 + (animationValue * 0.5),
-              child: Opacity(
-                // opacity من 0.1 إلى 0.2 بناءً على animationValue
-                opacity: 0.1 + (animationValue * 0.1),
-                child: Container(
-                  width: sizes[index],
-                  height: sizes[index],
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.secondaryColor,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
