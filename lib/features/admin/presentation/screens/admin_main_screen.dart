@@ -1,10 +1,13 @@
 import 'package:class_code/features/user/presentation/cubit/user_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
+import '../../../../../core/di/injection_container.dart';
+import '../../../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../widgets/admin_app_bar.dart';
 
 class AdminMainScreen extends StatelessWidget {
@@ -226,6 +229,21 @@ class AdminMainScreen extends StatelessWidget {
     if (confirm == true && context.mounted) {
       // مسح بيانات المستخدم
       final userCubit = context.read<UserCubit>();
+      final userCode = userCubit.state.code;
+
+      // إزالة ربط الجهاز من الكود في Firestore (إذا كان هناك كود)
+      if (userCode != null && userCode.isNotEmpty) {
+        try {
+          final authDataSource = InjectionContainer.authRemoteDataSource as dynamic;
+          if (authDataSource is AuthRemoteDataSourceImpl) {
+            await authDataSource.logoutWithCode(userCode);
+          }
+        } catch (e) {
+          debugPrint('❌ خطأ في إزالة ربط الجهاز: $e');
+          // نستمر في تسجيل الخروج حتى لو فشل تحديث deviceId
+        }
+      }
+
       await userCubit.clearUserData();
 
       if (context.mounted) {

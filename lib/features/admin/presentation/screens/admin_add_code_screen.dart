@@ -206,6 +206,56 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     }
   }
 
+  /// إعادة تعيين الجهاز المرتبط بالكود
+  /// يسمح للكود بالاستخدام على جهاز جديد
+  Future<void> _resetDeviceForCode(String codeId) async {
+    try {
+      // جلب الكود
+      final codes = await InjectionContainer.adminRepo.getCodes();
+      final codeToReset = codes.firstWhere(
+        (code) => code.id == codeId,
+        orElse: () => throw Exception('الكود غير موجود'),
+      );
+
+      // إنشاء نسخة محدثة من الكود بدون deviceId
+      final updatedCode = CodeModel(
+        id: codeToReset.id,
+        code: codeToReset.code,
+        name: codeToReset.name,
+        phone: codeToReset.phone,
+        description: codeToReset.description,
+        profileImageUrl: codeToReset.profileImageUrl,
+        createdAt: codeToReset.createdAt,
+        subscriptionEndDate: codeToReset.subscriptionEndDate,
+        deviceId: null, // إعادة تعيين الجهاز
+      );
+
+      // حفظ التحديث في Firestore
+      await InjectionContainer.adminRepo.addCode(updatedCode);
+
+      // إعادة تحميل قائمة الأكواد
+      _loadCodes();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم إعادة تعيين الجهاز بنجاح. يمكن استخدام الكود على جهاز جديد'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل إعادة تعيين الجهاز: ${e.toString()}'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteCode(String codeId) async {
     try {
       // جلب الكود قبل حذفه للحصول على code string
@@ -552,13 +602,38 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                                                     .textSecondaryStyle,
                                               ),
                                             ],
+                                            if (code.deviceId != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'مرتبط بجهاز',
+                                                style: AppStyles
+                                                    .textSecondaryStyle
+                                                    .copyWith(
+                                                      fontSize: 12,
+                                                      color: AppColors.primaryColor,
+                                                    ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),
-                                      IconButton(
-                                        onPressed: () => _deleteCode(code.id),
-                                        icon: const Icon(Icons.delete_outline),
-                                        color: AppColors.errorColor,
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (code.deviceId != null)
+                                            IconButton(
+                                              onPressed: () => _resetDeviceForCode(code.id),
+                                              icon: const Icon(Icons.refresh),
+                                              color: AppColors.primaryColor,
+                                              tooltip: 'إعادة تعيين الجهاز',
+                                            ),
+                                          IconButton(
+                                            onPressed: () => _deleteCode(code.id),
+                                            icon: const Icon(Icons.delete_outline),
+                                            color: AppColors.errorColor,
+                                            tooltip: 'حذف الكود',
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),

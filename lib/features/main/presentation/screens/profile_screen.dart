@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/services/image_storage_service.dart';
+import '../../../../../core/di/injection_container.dart';
+import '../../../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../../user/presentation/cubit/user_cubit.dart';
 import '../../../user/presentation/cubit/user_state.dart';
 import '../../../../../core/router/app_routers.dart';
@@ -114,13 +116,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// معالجة تسجيل الخروج
   ///
   /// الخطوات:
-  /// 1. مسح جميع بيانات المستخدم من UserCubit
-  /// 2. عرض رسالة نجاح
-  /// 3. إعادة التوجيه لشاشة تسجيل الدخول
+  /// 1. إزالة ربط الجهاز من الكود في Firestore
+  /// 2. مسح جميع بيانات المستخدم من UserCubit
+  /// 3. عرض رسالة نجاح
+  /// 4. إعادة التوجيه لشاشة تسجيل الدخول
   Future<void> _handleLogout() async {
     if (!mounted) return;
 
     final userCubit = context.read<UserCubit>();
+    final userCode = userCubit.state.code;
+
+    // إزالة ربط الجهاز من الكود في Firestore (إذا كان هناك كود)
+    if (userCode != null && userCode.isNotEmpty) {
+      try {
+        final authDataSource = InjectionContainer.authRemoteDataSource as dynamic;
+        if (authDataSource is AuthRemoteDataSourceImpl) {
+          await authDataSource.logoutWithCode(userCode);
+        }
+      } catch (e) {
+        debugPrint('❌ خطأ في إزالة ربط الجهاز: $e');
+        // نستمر في تسجيل الخروج حتى لو فشل تحديث deviceId
+      }
+    }
+
+    // مسح جميع بيانات المستخدم من UserCubit
     await userCubit.clearUserData();
 
     if (mounted) {

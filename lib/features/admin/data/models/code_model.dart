@@ -7,6 +7,7 @@ class CodeModel {
   final String? profileImageUrl; // رابط صورة البروفايل في Firebase Storage
   final DateTime createdAt;
   final DateTime? subscriptionEndDate; // تاريخ انتهاء الاشتراك
+  final String? deviceId; // معرف الجهاز المرتبط بالكود (للمنع من استخدام الكود على أكثر من جهاز)
 
   CodeModel({
     required this.id,
@@ -17,6 +18,7 @@ class CodeModel {
     this.profileImageUrl,
     required this.createdAt,
     this.subscriptionEndDate,
+    this.deviceId,
   });
 
   // Convert to Firestore Map
@@ -30,6 +32,7 @@ class CodeModel {
       'createdAt': createdAt.toIso8601String(),
       if (subscriptionEndDate != null)
         'subscriptionEndDate': subscriptionEndDate!.toIso8601String(),
+      if (deviceId != null) 'deviceId': deviceId,
     };
   }
 
@@ -56,6 +59,7 @@ class CodeModel {
           ? DateTime.parse(data['createdAt'])
           : DateTime.now(),
       subscriptionEndDate: subscriptionEndDate,
+      deviceId: data['deviceId'],
     );
   }
 }
