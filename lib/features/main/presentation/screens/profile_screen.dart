@@ -141,12 +141,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           previous.imagePath != current.imagePath ||
           previous.subscriptionEndDate != current.subscriptionEndDate,
       builder: (context, state) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
 
                 // صورة المستخدم
                 ProfileAvatar(imagePath: state.imagePath, onTap: _pickImage),
@@ -162,6 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildLogoutButton(),
               ],
             ),
+          ),
           ),
         );
       },

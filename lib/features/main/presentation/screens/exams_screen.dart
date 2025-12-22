@@ -13,7 +13,8 @@ class ExamsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: BlocBuilder<ExamsCubit, ExamsState>(
+      body: SafeArea(
+        child: BlocBuilder<ExamsCubit, ExamsState>(
         builder: (context, state) {
           if (state.isLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -61,6 +62,7 @@ class ExamsScreen extends StatelessWidget {
             },
           );
         },
+        ),
       ),
     );
   }

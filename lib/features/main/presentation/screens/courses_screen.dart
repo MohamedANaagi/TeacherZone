@@ -32,57 +32,61 @@ class _CoursesScreenState extends State<CoursesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
-      body: BlocBuilder<CoursesCubit, CoursesState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: BlocBuilder<CoursesCubit, CoursesState>(
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (state.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 80,
-                    color: AppColors.textLight,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    state.error!,
-                    style: AppStyles.textSecondaryStyle.copyWith(fontSize: 16),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      final userCode = context.read<UserCubit>().state.code;
-                      context.read<CoursesCubit>().loadCourses(
-                        userCode: userCode,
-                      );
-                    },
-                    child: const Text('إعادة المحاولة'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (state.courses.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: state.courses.length,
-            cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
-            itemBuilder: (context, index) {
-              return RepaintBoundary(
-                child: _buildCourseCard(context, state.courses[index]),
+            if (state.error != null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 80,
+                      color: AppColors.textLight,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      state.error!,
+                      style: AppStyles.textSecondaryStyle.copyWith(
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        final userCode = context.read<UserCubit>().state.code;
+                        context.read<CoursesCubit>().loadCourses(
+                          userCode: userCode,
+                        );
+                      },
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
               );
-            },
-          );
-        },
+            }
+
+            if (state.courses.isEmpty) {
+              return _buildEmptyState();
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: state.courses.length,
+              cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
+              itemBuilder: (context, index) {
+                return RepaintBoundary(
+                  child: _buildCourseCard(context, state.courses[index]),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

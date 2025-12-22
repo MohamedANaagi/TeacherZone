@@ -40,15 +40,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // بطاقة المستخدم في الأعلى
-              _buildUserCard(),
-              const SizedBox(height: 24),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // بطاقة المستخدم في الأعلى
+                _buildUserCard(),
+                const SizedBox(height: 24),
 
               // قسم تعريف عن المحتوى
               const WelcomeSectionWidget(),
@@ -63,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
