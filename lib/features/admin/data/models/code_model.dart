@@ -6,6 +6,7 @@ class CodeModel {
   final String? description;
   final String? profileImageUrl; // رابط صورة البروفايل في Firebase Storage
   final DateTime createdAt;
+  final DateTime? subscriptionEndDate; // تاريخ انتهاء الاشتراك
 
   CodeModel({
     required this.id,
@@ -15,6 +16,7 @@ class CodeModel {
     this.description,
     this.profileImageUrl,
     required this.createdAt,
+    this.subscriptionEndDate,
   });
 
   // Convert to Firestore Map
@@ -26,11 +28,23 @@ class CodeModel {
       'description': description ?? '',
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       'createdAt': createdAt.toIso8601String(),
+      if (subscriptionEndDate != null)
+        'subscriptionEndDate': subscriptionEndDate!.toIso8601String(),
     };
   }
 
   // Create from Firestore Document
   factory CodeModel.fromFirestore(String id, Map<String, dynamic> data) {
+    DateTime? subscriptionEndDate;
+    if (data['subscriptionEndDate'] != null) {
+      try {
+        subscriptionEndDate = DateTime.parse(data['subscriptionEndDate']);
+      } catch (e) {
+        // Ignore parsing errors
+        subscriptionEndDate = null;
+      }
+    }
+
     return CodeModel(
       id: id,
       code: data['code'] ?? '',
@@ -41,6 +55,7 @@ class CodeModel {
       createdAt: data['createdAt'] != null
           ? DateTime.parse(data['createdAt'])
           : DateTime.now(),
+      subscriptionEndDate: subscriptionEndDate,
     );
   }
 }

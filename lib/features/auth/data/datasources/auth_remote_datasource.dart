@@ -2,6 +2,9 @@ import 'package:class_code/features/admin/domain/repositories/admin_repository.d
 
 import '../models/user_model.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/image_storage_service.dart';
+import '../../../../core/services/video_progress_service.dart';
+import 'package:flutter/foundation.dart';
 
 /// Remote Data Source Interface
 /// يعرف العمليات للتعامل مع API
@@ -47,8 +50,32 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw AuthException('الكود المدخل غير صحيح أو غير موجود');
       }
 
-      // حساب تاريخ انتهاء الاشتراك (30 يوم من الآن)
-      final subscriptionEndDate = DateTime.now().add(const Duration(days: 30));
+      // التحقق من انتهاء الاشتراك وحذف الكود تلقائياً إذا انتهى
+      if (codeModel.subscriptionEndDate != null) {
+        final now = DateTime.now();
+        if (now.isAfter(codeModel.subscriptionEndDate!)) {
+          // حذف جميع بيانات الكود (الصورة، حالات المشاهدة)
+          try {
+            await ImageStorageService.deleteProfileImage(code: code);
+            await VideoProgressService.clearVideoProgressForCode(code: code);
+            debugPrint('تم حذف بيانات الكود المنتهي: $code');
+          } catch (e) {
+            debugPrint('خطأ في حذف بيانات الكود المنتهي $code: $e');
+          }
+          
+          // حذف الكود من Firestore
+          try {
+            await adminRepository.deleteCode(codeModel.id);
+          } catch (e) {
+            // تجاهل أخطاء الحذف، لكن نرمي خطأ تسجيل الدخول
+          }
+          throw AuthException('انتهت صلاحية الاشتراك لهذا الكود');
+        }
+      }
+
+      // استخدام subscriptionEndDate من CodeModel إذا كان موجوداً، وإلا استخدام 30 يوم افتراضي
+      final subscriptionEndDate = codeModel.subscriptionEndDate ?? 
+          DateTime.now().add(const Duration(days: 30));
 
       // إنشاء UserModel مع معرف فريد وبيانات المستخدم من الكود
       // ملاحظة: رابط الصورة سيتم جلبه من UserCubit عند الحاجة

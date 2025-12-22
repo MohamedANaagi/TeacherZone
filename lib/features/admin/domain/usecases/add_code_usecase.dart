@@ -12,6 +12,7 @@ class AddCodeUseCase {
     required String name,
     required String phone,
     String? description,
+    int? subscriptionDays, // عدد أيام الاشتراك
   }) async {
     // Validation
     if (code.trim().isEmpty) {
@@ -33,6 +34,12 @@ class AddCodeUseCase {
       );
     }
 
+    // حساب تاريخ انتهاء الاشتراك
+    DateTime? subscriptionEndDate;
+    if (subscriptionDays != null && subscriptionDays > 0) {
+      subscriptionEndDate = DateTime.now().add(Duration(days: subscriptionDays));
+    }
+
     final codeModel = CodeModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       code: code.trim(),
@@ -40,6 +47,7 @@ class AddCodeUseCase {
       phone: cleanPhone,
       description: description?.trim(),
       createdAt: DateTime.now(),
+      subscriptionEndDate: subscriptionEndDate,
     );
 
     await repository.addCode(codeModel);

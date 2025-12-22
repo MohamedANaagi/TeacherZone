@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
+import '../../../../../core/services/image_storage_service.dart';
+import '../../../../../core/services/video_progress_service.dart';
 import '../../data/models/code_model.dart';
 import '../widgets/admin_app_bar.dart';
 import '../../../auth/presentation/widgets/custom_text_field.dart';
@@ -20,22 +23,69 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _subscriptionDaysController = TextEditingController();
   bool _isLoading = false;
   Future<List<CodeModel>>? _codesFuture; // لحفظ Future الأكواد
   int _refreshKey = 0; // لإعادة بناء FutureBuilder
+  Timer? _expirationCheckTimer; // Timer للتحقق من الأكواد المنتهية
 
   @override
   void initState() {
     super.initState();
     _loadCodes();
+    // بدء التحقق الدوري من الأكواد المنتهية كل دقيقة
+    _startExpirationCheck();
+  }
+
+  /// بدء التحقق الدوري من الأكواد المنتهية
+  void _startExpirationCheck() {
+    _expirationCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _checkAndDeleteExpiredCodes();
+    });
+  }
+
+  /// التحقق من الأكواد المنتهية وحذفها تلقائياً
+  Future<void> _checkAndDeleteExpiredCodes() async {
+    try {
+      final codes = await InjectionContainer.adminRepo.getCodes();
+      final now = DateTime.now();
+      
+      for (final code in codes) {
+        if (code.subscriptionEndDate != null && 
+            now.isAfter(code.subscriptionEndDate!)) {
+          // حذف جميع بيانات الكود (الصورة، حالات المشاهدة)
+          try {
+            await _deleteCodeData(code.code);
+            
+            // حذف الكود من Firestore
+            await InjectionContainer.adminRepo.deleteCode(code.id);
+            
+            if (mounted) {
+              debugPrint('تم حذف الكود المنتهي وجميع بياناته: ${code.code}');
+            }
+          } catch (e) {
+            debugPrint('خطأ في حذف الكود المنتهي ${code.code}: $e');
+          }
+        }
+      }
+      
+      // إعادة تحميل الأكواد بعد الحذف
+      if (mounted) {
+        _loadCodes();
+      }
+    } catch (e) {
+      debugPrint('خطأ في التحقق من الأكواد المنتهية: $e');
+    }
   }
 
   @override
   void dispose() {
+    _expirationCheckTimer?.cancel();
     _codeController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _descriptionController.dispose();
+    _subscriptionDaysController.dispose();
     super.dispose();
   }
 
@@ -65,6 +115,24 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // تحويل عدد الأيام إلى int
+      int? subscriptionDays;
+      if (_subscriptionDaysController.text.isNotEmpty) {
+        subscriptionDays = int.tryParse(_subscriptionDaysController.text);
+        if (subscriptionDays == null || subscriptionDays <= 0) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('عدد الأيام يجب أن يكون رقماً صحيحاً أكبر من صفر'),
+                backgroundColor: AppColors.errorColor,
+              ),
+            );
+          }
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       await InjectionContainer.addCodeUseCase(
         code: _codeController.text,
         name: _nameController.text,
@@ -72,6 +140,7 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
+        subscriptionDays: subscriptionDays,
       );
 
       if (mounted) {
@@ -79,6 +148,7 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
         _nameController.clear();
         _phoneController.clear();
         _descriptionController.clear();
+        _subscriptionDaysController.clear();
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -121,8 +191,35 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     }
   }
 
+  /// حذف جميع بيانات الكود (الكود، الصورة، حالات المشاهدة)
+  Future<void> _deleteCodeData(String code) async {
+    try {
+      // حذف الصورة المحلية
+      await ImageStorageService.deleteProfileImage(code: code);
+      debugPrint('تم حذف الصورة للكود: $code');
+
+      // حذف حالات مشاهدة الفيديوهات
+      await VideoProgressService.clearVideoProgressForCode(code: code);
+      debugPrint('تم حذف حالات المشاهدة للكود: $code');
+    } catch (e) {
+      debugPrint('خطأ في حذف بيانات الكود $code: $e');
+    }
+  }
+
   Future<void> _deleteCode(String codeId) async {
     try {
+      // جلب الكود قبل حذفه للحصول على code string
+      final codes = await InjectionContainer.adminRepo.getCodes();
+      final codeToDelete = codes.firstWhere(
+        (code) => code.id == codeId,
+        orElse: () => throw Exception('الكود غير موجود'),
+      );
+      final codeString = codeToDelete.code;
+
+      // حذف جميع بيانات الكود (الصورة، حالات المشاهدة)
+      await _deleteCodeData(codeString);
+
+      // حذف الكود من Firestore
       await InjectionContainer.adminRepo.deleteCode(codeId);
 
       // إعادة تحميل قائمة الأكواد
@@ -131,7 +228,7 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم حذف الكود بنجاح'),
+            content: Text('تم حذف الكود وجميع بياناته بنجاح'),
             backgroundColor: AppColors.successColor,
           ),
         );
@@ -253,6 +350,25 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                         textAlign: TextAlign.right,
                         textDirection: TextDirection.rtl,
                         maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      // حقل عدد الأيام
+                      CustomTextField(
+                        controller: _subscriptionDaysController,
+                        hintText: 'عدد أيام الاشتراك (اختياري)',
+                        icon: Icons.calendar_today,
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value != null && value.isNotEmpty) {
+                            final days = int.tryParse(value);
+                            if (days == null || days <= 0) {
+                              return 'عدد الأيام يجب أن يكون رقماً صحيحاً أكبر من صفر';
+                            }
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 24),
                       // زر الإضافة
@@ -410,6 +526,21 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                                                   .textSecondaryStyle
                                                   .copyWith(fontSize: 14),
                                             ),
+                                            if (code.subscriptionEndDate != null) ...[
+                                              const SizedBox(height: 4),
+                                              _SubscriptionCountdown(
+                                                endDate: code.subscriptionEndDate!,
+                                                codeId: code.id,
+                                                onExpired: () {
+                                                  // إعادة تحميل الأكواد عند انتهاء أحدها (بعد انتهاء بناء الـ widget tree)
+                                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                    if (mounted) {
+                                                      _loadCodes();
+                                                    }
+                                                  });
+                                                },
+                                              ),
+                                            ],
                                             if (code.description != null &&
                                                 code
                                                     .description!
@@ -443,5 +574,97 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Widget لعرض عداد تنازلي للأيام المتبقية في الاشتراك
+class _SubscriptionCountdown extends StatefulWidget {
+  final DateTime endDate;
+  final String codeId;
+  final VoidCallback? onExpired;
+
+  const _SubscriptionCountdown({
+    required this.endDate,
+    required this.codeId,
+    this.onExpired,
+  });
+
+  @override
+  State<_SubscriptionCountdown> createState() => _SubscriptionCountdownState();
+}
+
+class _SubscriptionCountdownState extends State<_SubscriptionCountdown> {
+  Timer? _timer;
+  int _daysRemaining = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // تحديث العداد بعد انتهاء بناء الـ widget tree
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateCountdown();
+      }
+    });
+    // تحديث العداد كل دقيقة
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) {
+        _updateCountdown();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _updateCountdown() {
+    final now = DateTime.now();
+    final difference = widget.endDate.difference(now);
+    final daysRemaining = difference.inDays;
+
+    if (mounted) {
+      final wasExpired = _daysRemaining > 0 && daysRemaining <= 0;
+      
+      setState(() {
+        _daysRemaining = daysRemaining;
+      });
+
+      // إذا انتهى الاشتراك، استدعاء callback بعد انتهاء بناء الـ widget tree
+      if (wasExpired && widget.onExpired != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.onExpired != null) {
+            widget.onExpired!();
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_daysRemaining <= 0) {
+      return Text(
+        'انتهى الاشتراك',
+        style: AppStyles.textSecondaryStyle.copyWith(
+          fontSize: 12,
+          color: AppColors.errorColor,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else {
+      return Text(
+        'الأيام المتبقية: $_daysRemaining يوم',
+        style: AppStyles.textSecondaryStyle.copyWith(
+          fontSize: 12,
+          color: _daysRemaining <= 7 
+              ? AppColors.errorColor 
+              : AppColors.successColor,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
   }
 }
