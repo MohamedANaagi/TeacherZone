@@ -109,6 +109,7 @@ class LoginButton extends StatelessWidget {
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
+
         ),
         const SizedBox(width: 8),
         const Icon(
@@ -120,3 +121,4 @@ class LoginButton extends StatelessWidget {
     );
   }
 }
+

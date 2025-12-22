@@ -11,19 +11,27 @@ import 'features/videos/presentation/cubit/videos_cubit.dart';
 import 'features/exams/presentation/cubit/exams_cubit.dart';
 
 void main() async {
+  debugPrint('🚀 Starting app initialization...');
+  
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('✅ WidgetsFlutterBinding initialized');
 
   try {
+    debugPrint('🔥 Initializing Firebase...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    debugPrint('✅ Firebase initialized successfully');
   } catch (e, stackTrace) {
     // في حالة فشل التهيئة، يمكنك إضافة logging هنا
-    debugPrint('Firebase initialization error: $e');
+    debugPrint('❌ Firebase initialization error: $e');
     debugPrint('Stack trace: $stackTrace');
+    // Continue anyway - app might work without Firebase in some cases
   }
 
+  debugPrint('🎨 Running app...');
   runApp(const MyApp());
+  debugPrint('✅ App launched successfully');
 }
 
 class MyApp extends StatelessWidget {

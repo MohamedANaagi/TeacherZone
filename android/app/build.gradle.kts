@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.class_code"
+    namespace = "com.example.teacherzone"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

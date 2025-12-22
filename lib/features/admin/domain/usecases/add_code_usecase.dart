@@ -34,6 +34,14 @@ class AddCodeUseCase {
       );
     }
 
+    // التحقق من عدم وجود كود مكرر
+    final existingCode = await repository.getCodeByCode(code.trim());
+    if (existingCode != null) {
+      throw ValidationException(
+        'الكود "${code.trim()}" مستخدم بالفعل. لا يمكن إضافة كود مكرر',
+      );
+    }
+
     // حساب تاريخ انتهاء الاشتراك
     DateTime? subscriptionEndDate;
     if (subscriptionDays != null && subscriptionDays > 0) {

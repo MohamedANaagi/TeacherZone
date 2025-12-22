@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -59,10 +56,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB8Ie3gefIqosQM6Iya7TDO8MzvqTi9CdA',
-    appId: '1:420503435906:ios:6458c748f9511101e3529b',
+    appId: '1:420503435906:ios:5d952a1a0a019fc2e3529b',
     messagingSenderId: '420503435906',
     projectId: 'teacherzone-eb4fb',
     storageBucket: 'teacherzone-eb4fb.firebasestorage.app',
-    iosBundleId: 'com.example.classCode',
+    iosBundleId: 'com.example.teacherzone',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyBLNia9UKHF-SXQSXAyMD58xp4n2Rpdpes',
+    appId: '1:420503435906:web:cd1f0043aff35fb5e3529b',
+    messagingSenderId: '420503435906',
+    projectId: 'teacherzone-eb4fb',
+    authDomain: 'teacherzone-eb4fb.firebaseapp.com',
+    storageBucket: 'teacherzone-eb4fb.firebasestorage.app',
+    measurementId: 'G-N3RER5KRMG',
   );
 }
