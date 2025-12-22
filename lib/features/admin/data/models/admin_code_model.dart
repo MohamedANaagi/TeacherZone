@@ -1,41 +1,34 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class VideoModel {
+/// AdminCodeModel
+/// نموذج بيانات كود الأدمن
+class AdminCodeModel {
   final String id;
-  final String courseId;
-  final String title;
-  final String url;
-  final String? description;
-  final String duration;
-  final DateTime createdAt;
-  final String adminCode; // كود الأدمن المرتبط بهذا الفيديو
+  final String adminCode; // كود الأدمن (مثل: "ADMIN001")
+  final String name; // اسم الأدمن
+  final String? description; // وصف اختياري
+  final DateTime createdAt; // تاريخ الإنشاء
 
-  VideoModel({
+  AdminCodeModel({
     required this.id,
-    required this.courseId,
-    required this.title,
-    required this.url,
-    this.description,
-    this.duration = '00:00',
-    required this.createdAt,
     required this.adminCode,
+    required this.name,
+    this.description,
+    required this.createdAt,
   });
 
   // Convert to Firestore Map
   Map<String, dynamic> toFirestore() {
     return {
-      'courseId': courseId,
-      'title': title,
-      'url': url,
-      'description': description ?? '',
-      'duration': duration,
-      'createdAt': createdAt.toIso8601String(),
       'adminCode': adminCode,
+      'name': name,
+      'description': description ?? '',
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
   // Create from Firestore Document
-  factory VideoModel.fromFirestore(String id, Map<String, dynamic> data) {
+  factory AdminCodeModel.fromFirestore(String id, Map<String, dynamic> data) {
     // معالجة createdAt - يدعم Timestamp و String
     DateTime createdAt;
     if (data['createdAt'] != null) {
@@ -54,15 +47,13 @@ class VideoModel {
       createdAt = DateTime.now();
     }
 
-    return VideoModel(
+    return AdminCodeModel(
       id: id,
-      courseId: data['courseId'] ?? '',
-      title: data['title'] ?? '',
-      url: data['url'] ?? '',
-      description: data['description'],
-      duration: data['duration'] ?? '00:00',
-      createdAt: createdAt,
       adminCode: data['adminCode'] ?? '',
+      name: data['name'] ?? '',
+      description: data['description'],
+      createdAt: createdAt,
     );
   }
 }
+

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -9,6 +10,7 @@ import '../../../../../core/services/video_progress_service.dart';
 import '../../data/models/code_model.dart';
 import '../widgets/admin_app_bar.dart';
 import '../../../auth/presentation/widgets/custom_text_field.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
 
 class AdminAddCodeScreen extends StatefulWidget {
   const AdminAddCodeScreen({super.key});
@@ -47,7 +49,9 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
   /// التحقق من الأكواد المنتهية وحذفها تلقائياً
   Future<void> _checkAndDeleteExpiredCodes() async {
     try {
-      final codes = await InjectionContainer.adminRepo.getCodes();
+      // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+      final adminCode = context.read<UserCubit>().state.adminCode;
+      final codes = await InjectionContainer.adminRepo.getCodes(adminCode: adminCode);
       final now = DateTime.now();
       
       for (final code in codes) {
@@ -89,9 +93,15 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     super.dispose();
   }
 
+  Future<List<CodeModel>> _getAdminCodeAndLoadCodes() async {
+    // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+    final adminCode = context.read<UserCubit>().state.adminCode;
+    return await InjectionContainer.adminRepo.getCodes(adminCode: adminCode);
+  }
+
   void _loadCodes() {
     // إنشاء Future جديد في كل مرة لإجبار FutureBuilder على إعادة البناء
-    final newFuture = InjectionContainer.adminRepo.getCodes().catchError((e) {
+    final newFuture = _getAdminCodeAndLoadCodes().catchError((e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -133,6 +143,21 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
         }
       }
 
+      // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+      final adminCode = context.read<UserCubit>().state.adminCode;
+      if (adminCode == null || adminCode.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('كود الأدمن غير موجود. يجب تسجيل الدخول بكود أدمن أولاً'),
+              backgroundColor: AppColors.errorColor,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
       await InjectionContainer.addCodeUseCase(
         code: _codeController.text,
         name: _nameController.text,
@@ -141,6 +166,7 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
             ? null
             : _descriptionController.text,
         subscriptionDays: subscriptionDays,
+        adminCode: adminCode,
       );
 
       if (mounted) {
@@ -210,8 +236,10 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
   /// يسمح للكود بالاستخدام على جهاز جديد
   Future<void> _resetDeviceForCode(String codeId) async {
     try {
+      // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+      final adminCode = context.read<UserCubit>().state.adminCode;
       // جلب الكود
-      final codes = await InjectionContainer.adminRepo.getCodes();
+      final codes = await InjectionContainer.adminRepo.getCodes(adminCode: adminCode);
       final codeToReset = codes.firstWhere(
         (code) => code.id == codeId,
         orElse: () => throw Exception('الكود غير موجود'),
@@ -228,6 +256,7 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
         createdAt: codeToReset.createdAt,
         subscriptionEndDate: codeToReset.subscriptionEndDate,
         deviceId: null, // إعادة تعيين الجهاز
+        adminCode: codeToReset.adminCode,
       );
 
       // حفظ التحديث في Firestore
@@ -258,8 +287,10 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
 
   Future<void> _deleteCode(String codeId) async {
     try {
+      // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+      final adminCode = context.read<UserCubit>().state.adminCode;
       // جلب الكود قبل حذفه للحصول على code string
-      final codes = await InjectionContainer.adminRepo.getCodes();
+      final codes = await InjectionContainer.adminRepo.getCodes(adminCode: adminCode);
       final codeToDelete = codes.firstWhere(
         (code) => code.id == codeId,
         orElse: () => throw Exception('الكود غير موجود'),

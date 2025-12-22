@@ -13,6 +13,7 @@ class AddVideoUseCase {
     required String url,
     String? description,
     String duration = '00:00',
+    required String adminCode, // كود الأدمن المرتبط بهذا الفيديو
   }) async {
     // Validation
     if (courseId.trim().isEmpty) {
@@ -24,6 +25,9 @@ class AddVideoUseCase {
     if (url.trim().isEmpty) {
       throw ValidationException('رابط الفيديو مطلوب');
     }
+    if (adminCode.trim().isEmpty) {
+      throw ValidationException('كود الأدمن مطلوب');
+    }
 
     final videoModel = VideoModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -33,6 +37,7 @@ class AddVideoUseCase {
       description: description?.trim(),
       duration: duration,
       createdAt: DateTime.now(),
+      adminCode: adminCode.trim(),
     );
 
     await repository.addVideo(videoModel);

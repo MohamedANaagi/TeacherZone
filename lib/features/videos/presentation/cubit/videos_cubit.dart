@@ -32,9 +32,16 @@ class VideosCubit extends Cubit<VideosState> {
     );
 
     try {
-      // جلب الفيديوهات من Firestore عبر AdminRepository
+      // جلب adminCode من كود المستخدم
+      String? adminCode;
+      if (userCode != null && userCode.isNotEmpty) {
+        final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
+        adminCode = codeModel?.adminCode;
+      }
+      
+      // جلب الفيديوهات من Firestore عبر AdminRepository مع تصفية حسب adminCode
       final videoModels = await InjectionContainer.adminRepo
-          .getVideosByCourseId(courseId);
+          .getVideosByCourseId(courseId, adminCode: adminCode);
 
       // جلب الفيديوهات المشاهدة المحفوظة (إن وجد كود)
       Set<String> watchedVideos = {};

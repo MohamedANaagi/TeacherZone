@@ -10,6 +10,44 @@ class AdminRepositoryImpl implements AdminRepository {
 
   AdminRepositoryImpl({required this.remoteDataSource});
 
+  // ==================== Admin Codes ====================
+
+  @override
+  Future<String?> getAdminCodeByUserCode(String userCode) async {
+    try {
+      return await remoteDataSource.getAdminCodeByUserCode(userCode);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء جلب كود الأدمن');
+    }
+  }
+
+  @override
+  Future<bool> validateAdminCode(String adminCode) async {
+    try {
+      return await remoteDataSource.validateAdminCode(adminCode);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء التحقق من كود الأدمن');
+    }
+  }
+
+  @override
+  Future<String?> getAdminCodeByCode(String code) async {
+    try {
+      return await remoteDataSource.getAdminCodeByCode(code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء جلب كود الأدمن');
+    }
+  }
+
   @override
   Future<void> addCode(CodeModel code) async {
     try {
@@ -23,9 +61,9 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<List<CodeModel>> getCodes() async {
+  Future<List<CodeModel>> getCodes({String? adminCode}) async {
     try {
-      return await remoteDataSource.getCodes();
+      return await remoteDataSource.getCodes(adminCode: adminCode);
     } catch (e) {
       if (e is ServerException) {
         rethrow;
@@ -83,9 +121,9 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<List<CourseModel>> getCourses() async {
+  Future<List<CourseModel>> getCourses({String? adminCode}) async {
     try {
-      return await remoteDataSource.getCourses();
+      return await remoteDataSource.getCourses(adminCode: adminCode);
     } catch (e) {
       if (e is ServerException) {
         rethrow;
@@ -131,9 +169,9 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<List<VideoModel>> getVideosByCourseId(String courseId) async {
+  Future<List<VideoModel>> getVideosByCourseId(String courseId, {String? adminCode}) async {
     try {
-      return await remoteDataSource.getVideosByCourseId(courseId);
+      return await remoteDataSource.getVideosByCourseId(courseId, adminCode: adminCode);
     } catch (e) {
       if (e is ServerException) {
         rethrow;

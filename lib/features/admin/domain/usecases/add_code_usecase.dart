@@ -13,6 +13,7 @@ class AddCodeUseCase {
     required String phone,
     String? description,
     int? subscriptionDays, // عدد أيام الاشتراك
+    required String adminCode, // كود الأدمن المرتبط بهذا الكود
   }) async {
     // Validation
     if (code.trim().isEmpty) {
@@ -23,6 +24,9 @@ class AddCodeUseCase {
     }
     if (phone.trim().isEmpty) {
       throw ValidationException('رقم الهاتف مطلوب');
+    }
+    if (adminCode.trim().isEmpty) {
+      throw ValidationException('كود الأدمن مطلوب');
     }
 
     // التحقق من صحة رقم الهاتف
@@ -56,6 +60,7 @@ class AddCodeUseCase {
       description: description?.trim(),
       createdAt: DateTime.now(),
       subscriptionEndDate: subscriptionEndDate,
+      adminCode: adminCode.trim(),
     );
 
     await repository.addCode(codeModel);

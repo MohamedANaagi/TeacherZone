@@ -2,6 +2,7 @@ import '../../../user/presentation/cubit/user_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
@@ -149,6 +150,14 @@ class _CodeInputScreenState extends State<CodeInputScreen>
         debugPrint('خطأ في جلب الصورة المحلية: $e');
       }
 
+      // جلب adminCode من الكود
+      String? adminCode;
+      try {
+        adminCode = await InjectionContainer.adminRepo.getAdminCodeByUserCode(code);
+      } catch (e) {
+        debugPrint('⚠️ خطأ في جلب adminCode: $e');
+      }
+
       // حفظ بيانات المستخدم في UserCubit
       if (!mounted) return;
       final userCubit = context.read<UserCubit>();
@@ -156,6 +165,7 @@ class _CodeInputScreenState extends State<CodeInputScreen>
         name: user.name,
         phone: user.phone,
         code: code,
+        adminCode: adminCode,
         imagePath: profileImagePath,
         subscriptionEndDate: user.subscriptionEndDate,
         isLoggedIn: true,
@@ -349,13 +359,60 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
     super.dispose();
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     final enteredCode = _codeController.text.trim();
-    Navigator.of(context).pop();
-    if (enteredCode == '3082002') {
-      context.push(AppRouters.adminMainScreen);
-    } else {
-      ErrorSnackBarHelper.showError(context, 'كود الأدمن غير صحيح');
+    
+    if (enteredCode.isEmpty) {
+      ErrorSnackBarHelper.showError(context, 'الرجاء إدخال كود الأدمن');
+      return;
+    }
+
+    // إظهار loading indicator
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    try {
+      // البحث مباشرة في collection adminCodes
+      final adminCode = await InjectionContainer.adminRepo.getAdminCodeByCode(enteredCode);
+      
+      if (mounted) {
+        Navigator.of(context).pop(); // إغلاق loading dialog
+      }
+
+      if (adminCode == null || adminCode.isEmpty) {
+        if (mounted) {
+          Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+          ErrorSnackBarHelper.showError(context, 'كود الأدمن غير صحيح');
+        }
+        return;
+      }
+
+      // حفظ adminCode في UserCubit
+      if (mounted) {
+        final userCubit = context.read<UserCubit>();
+        await userCubit.updateUser(
+          adminCode: adminCode,
+          isLoggedIn: true,
+        );
+        
+        // الانتقال لشاشة الأدمن
+        Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+        context.push(AppRouters.adminMainScreen);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // إغلاق loading dialog
+        Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+        ErrorSnackBarHelper.showError(context, 'حدث خطأ أثناء التحقق من كود الأدمن');
+      }
+      debugPrint('خطأ في التحقق من كود الأدمن: $e');
     }
   }
 

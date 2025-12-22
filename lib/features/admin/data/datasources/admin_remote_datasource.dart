@@ -5,22 +5,27 @@ import '../models/course_model.dart';
 import '../models/video_model.dart';
 
 abstract class AdminRemoteDataSource {
+  // Admin Codes
+  Future<String?> getAdminCodeByUserCode(String userCode);
+  Future<bool> validateAdminCode(String adminCode);
+  Future<String?> getAdminCodeByCode(String code); // جلب adminCode مباشرة من adminCodes collection
+
   // Codes
   Future<void> addCode(CodeModel code);
-  Future<List<CodeModel>> getCodes();
+  Future<List<CodeModel>> getCodes({String? adminCode});
   Future<void> deleteCode(String codeId);
   Future<bool> validateCode(String code);
   Future<CodeModel?> getCodeByCode(String code);
 
   // Courses
   Future<void> addCourse(CourseModel course);
-  Future<List<CourseModel>> getCourses();
+  Future<List<CourseModel>> getCourses({String? adminCode});
   Future<void> deleteCourse(String courseId);
   Future<void> updateCourse(CourseModel course);
 
   // Videos
   Future<void> addVideo(VideoModel video);
-  Future<List<VideoModel>> getVideosByCourseId(String courseId);
+  Future<List<VideoModel>> getVideosByCourseId(String courseId, {String? adminCode});
   Future<void> deleteVideo(String videoId);
   Future<void> updateVideoCountForCourse(String courseId);
 }
@@ -30,6 +35,73 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
 
   AdminRemoteDataSourceImpl({FirebaseFirestore? firestore})
     : firestore = firestore ?? FirebaseFirestore.instance;
+
+  // ==================== Admin Codes ====================
+
+  @override
+  Future<String?> getAdminCodeByUserCode(String userCode) async {
+    try {
+      // جلب كود المستخدم من Firestore
+      final codeModel = await getCodeByCode(userCode);
+      if (codeModel == null) {
+        return null;
+      }
+
+      // جلب adminCode من collection adminCodes
+      final adminCodeSnapshot = await firestore
+          .collection('adminCodes')
+          .where('adminCode', isEqualTo: codeModel.adminCode)
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (adminCodeSnapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final adminCodeDoc = adminCodeSnapshot.docs.first;
+      final adminCodeData = adminCodeDoc.data();
+      return adminCodeData['adminCode'] as String?;
+    } catch (e) {
+      throw ServerException('فشل جلب كود الأدمن: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<bool> validateAdminCode(String adminCode) async {
+    try {
+      final snapshot = await firestore
+          .collection('adminCodes')
+          .where('adminCode', isEqualTo: adminCode.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      return snapshot.docs.isNotEmpty;
+    } catch (e) {
+      throw ServerException('فشل التحقق من كود الأدمن: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<String?> getAdminCodeByCode(String code) async {
+    try {
+      // البحث مباشرة في collection adminCodes
+      final snapshot = await firestore
+          .collection('adminCodes')
+          .where('adminCode', isEqualTo: code.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final adminCodeDoc = snapshot.docs.first;
+      final adminCodeData = adminCodeDoc.data();
+      return adminCodeData['adminCode'] as String?;
+    } catch (e) {
+      throw ServerException('فشل جلب كود الأدمن: ${e.toString()}');
+    }
+  }
 
   // ==================== Codes ====================
 
@@ -43,15 +115,20 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
   }
 
   @override
-  Future<List<CodeModel>> getCodes() async {
+  Future<List<CodeModel>> getCodes({String? adminCode}) async {
     try {
       // استخدام Source.server للحصول على البيانات من السيرفر مباشرة (بدون cache)
-      final snapshot = await firestore
-          .collection('codes')
-          .get(const GetOptions(source: Source.server));
+      Query query = firestore.collection('codes');
+      
+      // تصفية حسب adminCode إذا تم تمريره
+      if (adminCode != null && adminCode.isNotEmpty) {
+        query = query.where('adminCode', isEqualTo: adminCode);
+      }
+      
+      final snapshot = await query.get(const GetOptions(source: Source.server));
 
       final codes = snapshot.docs
-          .map((doc) => CodeModel.fromFirestore(doc.id, doc.data()))
+          .map((doc) => CodeModel.fromFirestore(doc.id, doc.data() as Map<String, dynamic>))
           .toList();
 
       // ترتيب محلي حسب التاريخ (الأحدث أولاً)
@@ -126,12 +203,19 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
   }
 
   @override
-  Future<List<CourseModel>> getCourses() async {
+  Future<List<CourseModel>> getCourses({String? adminCode}) async {
     try {
-      final snapshot = await firestore.collection('courses').get();
+      Query query = firestore.collection('courses');
+      
+      // تصفية حسب adminCode إذا تم تمريره
+      if (adminCode != null && adminCode.isNotEmpty) {
+        query = query.where('adminCode', isEqualTo: adminCode);
+      }
+      
+      final snapshot = await query.get();
 
       final courses = snapshot.docs
-          .map((doc) => CourseModel.fromFirestore(doc.id, doc.data()))
+          .map((doc) => CourseModel.fromFirestore(doc.id, doc.data() as Map<String, dynamic>))
           .toList();
 
       // ترتيب محلي حسب التاريخ (الأحدث أولاً)
@@ -195,15 +279,21 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
   }
 
   @override
-  Future<List<VideoModel>> getVideosByCourseId(String courseId) async {
+  Future<List<VideoModel>> getVideosByCourseId(String courseId, {String? adminCode}) async {
     try {
-      final snapshot = await firestore
+      Query query = firestore
           .collection('videos')
-          .where('courseId', isEqualTo: courseId)
-          .get();
+          .where('courseId', isEqualTo: courseId);
+      
+      // تصفية حسب adminCode إذا تم تمريره
+      if (adminCode != null && adminCode.isNotEmpty) {
+        query = query.where('adminCode', isEqualTo: adminCode);
+      }
+      
+      final snapshot = await query.get();
 
       final videos = snapshot.docs
-          .map((doc) => VideoModel.fromFirestore(doc.id, doc.data()))
+          .map((doc) => VideoModel.fromFirestore(doc.id, doc.data() as Map<String, dynamic>))
           .toList();
 
       // ترتيب محلي حسب التاريخ (الأقدم أولاً)

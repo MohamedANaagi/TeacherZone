@@ -18,7 +18,10 @@ service cloud.firestore {
              data.instructor is string &&
              data.duration is string &&
              data.createdAt is string &&
-             data.lessonsCount is int;
+             data.lessonsCount is int &&
+             // التأكد من وجود adminCode
+             data.adminCode is string &&
+             data.adminCode.size() > 0;
     }
     
     function isValidVideo(data) {
@@ -26,17 +29,35 @@ service cloud.firestore {
              data.courseId is string &&
              data.title is string &&
              data.url is string &&
-             data.createdAt is string;
+             data.createdAt is string &&
+             // التأكد من وجود adminCode
+             data.adminCode is string &&
+             data.adminCode.size() > 0;
+    }
+
+    // ==================== Admin Codes Collection ====================
+    match /adminCodes/{adminCodeId} {
+      // القراءة للجميع (لأن التحقق من كود الأدمن يحدث قبل تسجيل الدخول)
+      allow read: if true;
+      
+      // الكتابة محظورة - فقط من Firebase Console
+      allow write: if false;
     }
 
     // ==================== Codes Collection ====================
     match /codes/{codeId} {
-      // القراءة للجميع (لأن الكود يحتاج التحقق منه)
+      // القراءة للجميع (لأن الكود يحتاج التحقق منه قبل تسجيل الدخول)
       allow read: if true;
       
       // الكتابة مقيدة - فقط من التطبيق (يمكن إضافة authentication لاحقاً)
-      allow create: if isValidCode(request.resource.data);
-      allow update: if isValidCode(request.resource.data);
+      allow create: if isValidCode(request.resource.data) &&
+                       // التأكد من وجود adminCode
+                       request.resource.data.adminCode is string &&
+                       request.resource.data.adminCode.size() > 0;
+      allow update: if isValidCode(request.resource.data) &&
+                       // التأكد من وجود adminCode
+                       request.resource.data.adminCode is string &&
+                       request.resource.data.adminCode.size() > 0;
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 
@@ -49,7 +70,9 @@ service cloud.firestore {
       allow create: if isValidCourse(request.resource.data);
       allow update: if isValidCourse(request.resource.data) &&
                        // منع تغيير createdAt
-                       request.resource.data.createdAt == resource.data.createdAt;
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       // منع تغيير adminCode
+                       request.resource.data.adminCode == resource.data.adminCode;
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 
@@ -66,7 +89,9 @@ service cloud.firestore {
                        // منع تغيير createdAt
                        request.resource.data.createdAt == resource.data.createdAt &&
                        // منع تغيير courseId
-                       request.resource.data.courseId == resource.data.courseId;
+                       request.resource.data.courseId == resource.data.courseId &&
+                       // منع تغيير adminCode
+                       request.resource.data.adminCode == resource.data.adminCode;
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 

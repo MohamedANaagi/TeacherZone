@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -6,6 +7,7 @@ import '../../../../../core/errors/exceptions.dart';
 import '../../data/models/course_model.dart';
 import '../widgets/admin_app_bar.dart';
 import '../../../auth/presentation/widgets/custom_text_field.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
 
 class AdminAddCourseScreen extends StatefulWidget {
   const AdminAddCourseScreen({super.key});
@@ -38,9 +40,15 @@ class _AdminAddCourseScreenState extends State<AdminAddCourseScreen> {
     super.dispose();
   }
 
+  Future<List<CourseModel>> _getAdminCodeAndLoadCourses() async {
+    // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+    final adminCode = context.read<UserCubit>().state.adminCode;
+    return await InjectionContainer.adminRepo.getCourses(adminCode: adminCode);
+  }
+
   void _loadCourses() {
     setState(() {
-      _coursesFuture = InjectionContainer.adminRepo.getCourses().catchError((
+      _coursesFuture = _getAdminCodeAndLoadCourses().catchError((
         e,
       ) {
         if (mounted) {
@@ -62,11 +70,27 @@ class _AdminAddCourseScreenState extends State<AdminAddCourseScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
+      final adminCode = context.read<UserCubit>().state.adminCode;
+      if (adminCode == null || adminCode.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('كود الأدمن غير موجود. يجب تسجيل الدخول بكود أدمن أولاً'),
+              backgroundColor: AppColors.errorColor,
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
       await InjectionContainer.addCourseUseCase(
         title: _titleController.text,
         description: _descriptionController.text,
         instructor: _instructorController.text,
         duration: _durationController.text,
+        adminCode: adminCode,
       );
 
       _titleController.clear();

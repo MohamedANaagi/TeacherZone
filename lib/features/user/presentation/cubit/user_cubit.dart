@@ -16,6 +16,7 @@ class UserCubit extends Cubit<UserState> {
     String? phone,
     String? imagePath,
     String? code,
+    String? adminCode,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
   }) async {
@@ -24,6 +25,7 @@ class UserCubit extends Cubit<UserState> {
       phone: phone,
       imagePath: imagePath,
       code: code,
+      adminCode: adminCode,
       subscriptionEndDate: subscriptionEndDate,
       isLoggedIn: isLoggedIn,
     );
@@ -67,6 +69,13 @@ class UserCubit extends Cubit<UserState> {
         await prefs.remove('user_code');
       }
 
+      // حفظ أو مسح كود الأدمن
+      if (state.adminCode != null) {
+        await prefs.setString('admin_code', state.adminCode!);
+      } else {
+        await prefs.remove('admin_code');
+      }
+
       // حفظ أو مسح تاريخ انتهاء الاشتراك
       if (state.subscriptionEndDate != null) {
         await prefs.setString(
@@ -94,6 +103,7 @@ class UserCubit extends Cubit<UserState> {
       final name = prefs.getString('user_name');
       final phone = prefs.getString('user_phone');
       final code = prefs.getString('user_code');
+      final adminCode = prefs.getString('admin_code');
       final subscriptionDateString = prefs.getString('subscription_end_date');
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
 
@@ -124,6 +134,7 @@ class UserCubit extends Cubit<UserState> {
           phone: phone,
           imagePath: imagePath,
           code: code,
+          adminCode: adminCode,
           subscriptionEndDate: subscriptionEndDate,
           isLoggedIn: isLoggedIn,
         ),
@@ -144,6 +155,7 @@ class UserCubit extends Cubit<UserState> {
       await prefs.remove('user_phone');
       await prefs.remove('user_image_path');
       await prefs.remove('user_code');
+      await prefs.remove('admin_code');
       await prefs.remove('subscription_end_date');
       await prefs.setBool('is_logged_in', false);
       

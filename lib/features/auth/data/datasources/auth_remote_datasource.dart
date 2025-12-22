@@ -66,7 +66,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           } catch (e) {
             debugPrint('خطأ في حذف بيانات الكود المنتهي $code: $e');
           }
-          
+
           // حذف الكود من Firestore
           try {
             await adminRepository.deleteCode(codeModel.id);
@@ -79,12 +79,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       // الحصول على معرف الجهاز الحالي
       final currentDeviceId = await DeviceService.getDeviceId();
-      
+
       // التحقق من الجهاز
       // إذا كان الكود مرتبط بجهاز آخر، منع الدخول
       if (codeModel.deviceId != null && codeModel.deviceId != currentDeviceId) {
         throw AuthException(
-          'هذا الكود مستخدم بالفعل على جهاز آخر. لا يمكن استخدام الكود على أكثر من جهاز'
+          'هذا الكود مستخدم بالفعل على جهاز آخر. لا يمكن استخدام الكود على أكثر من جهاز',
         );
       }
 
@@ -101,19 +101,22 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           createdAt: codeModel.createdAt,
           subscriptionEndDate: codeModel.subscriptionEndDate,
           deviceId: currentDeviceId,
+          adminCode: codeModel.adminCode, // الحفاظ على adminCode
         );
-        
+
         // حفظ التحديث في Firestore
         await adminRepository.addCode(updatedCodeModel);
         debugPrint('✅ تم ربط الكود بالجهاز: $currentDeviceId');
       }
 
       // استخدام subscriptionEndDate من CodeModel إذا كان موجوداً، وإلا استخدام 30 يوم افتراضي
-      final subscriptionEndDate = codeModel.subscriptionEndDate ?? 
+      final subscriptionEndDate =
+          codeModel.subscriptionEndDate ??
           DateTime.now().add(const Duration(days: 30));
 
       // إنشاء UserModel مع معرف فريد وبيانات المستخدم من الكود
       // ملاحظة: رابط الصورة سيتم جلبه من UserCubit عند الحاجة
+      // ملاحظة: adminCode سيتم جلبه وحفظه في UserCubit منفصلاً في login_screen
       return UserModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: codeModel.name,
@@ -138,7 +141,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       // لكن بما أن logout لا يستقبل code، سنحتاج إلى تمريره من الخارج
       // أو يمكننا جلب الكود من Firestore بناءً على deviceId
       // لكن الأفضل هو تمرير code من الخارج
-      debugPrint('⚠️ logout تم استدعاؤه بدون code - سيتم استدعاؤه مع code من profile_screen');
+      debugPrint(
+        '⚠️ logout تم استدعاؤه بدون code - سيتم استدعاؤه مع code من profile_screen',
+      );
     } catch (e) {
       debugPrint('❌ خطأ في تسجيل الخروج: $e');
       // لا نرمي exception هنا لأن تسجيل الخروج يجب أن ينجح حتى لو فشل تحديث deviceId
@@ -151,11 +156,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       // جلب بيانات الكود من Firestore
       final codeModel = await adminRepository.getCodeByCode(code);
-      
+
       if (codeModel != null) {
         // الحصول على معرف الجهاز الحالي
         final currentDeviceId = await DeviceService.getDeviceId();
-        
+
         // التحقق من أن الكود مرتبط بالجهاز الحالي
         if (codeModel.deviceId == currentDeviceId) {
           // إزالة deviceId من الكود (السماح باستخدامه على جهاز آخر)
@@ -169,16 +174,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             createdAt: codeModel.createdAt,
             subscriptionEndDate: codeModel.subscriptionEndDate,
             deviceId: null, // إزالة ربط الجهاز
+            adminCode: codeModel.adminCode, // الحفاظ على adminCode
           );
-          
+
           // حفظ التحديث في Firestore
           await adminRepository.addCode(updatedCodeModel);
           debugPrint('✅ تم إزالة ربط الجهاز من الكود: $code');
         } else {
-          debugPrint('⚠️ الكود غير مرتبط بالجهاز الحالي - لا حاجة لإزالة deviceId');
+          debugPrint(
+            '⚠️ الكود غير مرتبط بالجهاز الحالي - لا حاجة لإزالة deviceId',
+          );
         }
       }
-      
+
       // إعادة تعيين معرف الويب إذا كان على الويب
       await DeviceService.resetWebDeviceId();
     } catch (e) {

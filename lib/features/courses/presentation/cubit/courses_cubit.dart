@@ -28,8 +28,15 @@ class CoursesCubit extends Cubit<CoursesState> {
     emit(state.copyWith(isLoading: true, clearError: true));
 
     try {
-      // جلب الكورسات من Firestore عبر AdminRepository
-      final courseModels = await InjectionContainer.adminRepo.getCourses();
+      // جلب adminCode من كود المستخدم
+      String? adminCode;
+      if (userCode != null && userCode.isNotEmpty) {
+        final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
+        adminCode = codeModel?.adminCode;
+      }
+      
+      // جلب الكورسات من Firestore عبر AdminRepository مع تصفية حسب adminCode
+      final courseModels = await InjectionContainer.adminRepo.getCourses(adminCode: adminCode);
 
       // تحويل CourseModel إلى Map<String, dynamic> مع حساب التقدم
       final courses = await Future.wait(
@@ -80,9 +87,12 @@ class CoursesCubit extends Cubit<CoursesState> {
           courseId: course.id,
         );
 
+        // جلب adminCode من الكورس
+        final adminCode = course.adminCode;
+        
         // جلب عدد الفيديوهات الإجمالي
         final videoModels = await InjectionContainer.adminRepo
-            .getVideosByCourseId(course.id);
+            .getVideosByCourseId(course.id, adminCode: adminCode);
         final totalVideos = videoModels.length;
 
         // حساب نسبة التقدم
@@ -130,9 +140,14 @@ class CoursesCubit extends Cubit<CoursesState> {
         courseId: courseId,
       );
 
+      // جلب الكورس للحصول على adminCode
+      final courses = await InjectionContainer.adminRepo.getCourses();
+      final course = courses.firstWhere((c) => c.id == courseId, orElse: () => throw Exception('الكورس غير موجود'));
+      final adminCode = course.adminCode;
+      
       // جلب عدد الفيديوهات الإجمالي
       final videoModels = await InjectionContainer.adminRepo
-          .getVideosByCourseId(courseId);
+          .getVideosByCourseId(courseId, adminCode: adminCode);
       final totalVideos = videoModels.length;
 
       // حساب نسبة التقدم
