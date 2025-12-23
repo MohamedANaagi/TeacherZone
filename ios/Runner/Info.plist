@@ -35,6 +35,10 @@
 	<string>نحتاج إلى الوصول إلى الكاميرا لالتقاط صورة الملف الشخصي</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج إلى الوصول إلى الصور لاختيار صورة الملف الشخصي</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>نحتاج إلى الوصول إلى الصور لاختيار الفيديوهات</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>نحتاج إلى الوصول إلى الميكروفون لتسجيل الفيديوهات</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

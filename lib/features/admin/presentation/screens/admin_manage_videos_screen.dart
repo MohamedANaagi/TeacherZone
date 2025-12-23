@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
+import '../../../../../core/services/bunny_storage_service.dart';
 import '../../data/models/course_model.dart';
 import '../../data/models/video_model.dart';
 import '../widgets/admin_app_bar.dart';
@@ -21,11 +25,15 @@ class AdminManageVideosScreen extends StatefulWidget {
 class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
   final _formKey = GlobalKey<FormState>();
   final _videoTitleController = TextEditingController();
-  final _videoUrlController = TextEditingController();
   final _videoDescriptionController = TextEditingController();
+  final _videoHoursController = TextEditingController(text: '0'); // الساعات
+  final _videoMinutesController = TextEditingController(text: '0'); // الدقائق
 
   String? _selectedCourseId;
   bool _isLoading = false;
+  File? _selectedVideoFile; // ملف الفيديو المختار (لـ iOS و Android)
+  PlatformFile? _selectedPlatformFile; // PlatformFile للويب
+  String? _uploadedVideoUrl; // URL الفيديو بعد الرفع
   Future<List<CourseModel>>? _coursesFuture; // لحفظ Future الكورسات
   Future<List<VideoModel>>? _videosFuture; // لحفظ Future الفيديوهات
 
@@ -38,9 +46,85 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
   @override
   void dispose() {
     _videoTitleController.dispose();
-    _videoUrlController.dispose();
     _videoDescriptionController.dispose();
+    _videoHoursController.dispose();
+    _videoMinutesController.dispose();
     super.dispose();
+  }
+
+  /// تحويل الساعات والدقائق إلى تنسيق "HH:MM"
+  String _formatDuration(int hours, int minutes) {
+    // التأكد من أن القيم صحيحة
+    final h = hours.clamp(0, 99);
+    final m = minutes.clamp(0, 59);
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  /// اختيار ملف فيديو
+  /// يدعم الويب و iOS و Android
+  Future<void> _pickVideoFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+        // للويب: السماح بجميع أنواع الفيديو
+        allowedExtensions: null, // null يعني جميع الأنواع
+      );
+
+      if (result != null) {
+        // للويب: استخدام bytes مباشرة
+        if (kIsWeb) {
+          if (result.files.single.bytes != null) {
+            // في الويب، نحتاج إلى حفظ الملف مؤقتاً
+            // لكن file_picker في الويب لا يعيد File مباشرة
+            // سنحتاج إلى استخدام PlatformFile
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('تم اختيار الفيديو: ${result.files.single.name}'),
+                  backgroundColor: AppColors.successColor,
+                ),
+              );
+            }
+            // في الويب، سنستخدم bytes مباشرة عند الرفع
+            setState(() {
+              _selectedVideoFile = null; // في الويب لا يوجد File
+              _uploadedVideoUrl = null;
+              // حفظ PlatformFile للاستخدام لاحقاً
+              _selectedPlatformFile = result.files.single;
+            });
+          }
+        } else {
+          // للـ iOS و Android: استخدام path
+          if (result.files.single.path != null) {
+            final file = File(result.files.single.path!);
+            setState(() {
+              _selectedVideoFile = file;
+              _uploadedVideoUrl = null;
+              _selectedPlatformFile = null;
+            });
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('تم اختيار الفيديو: ${result.files.single.name}'),
+                  backgroundColor: AppColors.successColor,
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ في اختيار الفيديو: ${e.toString()}'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   Future<List<CourseModel>> _getAdminCodeAndLoadCourses() async {
@@ -103,6 +187,16 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
       return;
     }
 
+    if (_selectedVideoFile == null && _selectedPlatformFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء اختيار ملف الفيديو أولاً'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -121,19 +215,82 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
         return;
       }
 
+      // رفع الفيديو إلى Bunny Storage
+      String videoUrl;
+      if (_uploadedVideoUrl != null) {
+        // إذا كان الفيديو مرفوعاً مسبقاً، استخدم نفس URL
+        videoUrl = _uploadedVideoUrl!;
+      } else {
+        // رفع الفيديو إلى Bunny Storage
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('جاري رفع الفيديو...'),
+              backgroundColor: AppColors.infoColor,
+            ),
+          );
+        }
+
+        // إنشاء اسم فريد للفيديو
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final originalFileName = kIsWeb 
+            ? (_selectedPlatformFile?.name ?? 'video.mp4')
+            : _selectedVideoFile!.path.split('/').last;
+        final fileName = '${_selectedCourseId}_${timestamp}_$originalFileName';
+        
+        // رفع الفيديو حسب المنصة
+        if (kIsWeb) {
+          // للويب: استخدام bytes
+          if (_selectedPlatformFile?.bytes == null) {
+            throw Exception('لم يتم اختيار ملف فيديو');
+          }
+          videoUrl = await BunnyStorageService.uploadVideo(
+            videoBytes: _selectedPlatformFile!.bytes!,
+            fileName: fileName,
+          );
+        } else {
+          // لـ iOS و Android: استخدام File
+          if (_selectedVideoFile == null) {
+            throw Exception('لم يتم اختيار ملف فيديو');
+          }
+          videoUrl = await BunnyStorageService.uploadVideo(
+            videoFile: _selectedVideoFile!,
+            fileName: fileName,
+          );
+        }
+        
+        setState(() {
+          _uploadedVideoUrl = videoUrl;
+        });
+      }
+
+      // حساب مدة الفيديو من الساعات والدقائق
+      final hours = int.tryParse(_videoHoursController.text) ?? 0;
+      final minutes = int.tryParse(_videoMinutesController.text) ?? 0;
+      final duration = _formatDuration(hours, minutes);
+
+      // إضافة الفيديو إلى Firestore
       await InjectionContainer.addVideoUseCase(
         courseId: _selectedCourseId!,
         title: _videoTitleController.text,
-        url: _videoUrlController.text,
+        url: videoUrl,
         description: _videoDescriptionController.text.isEmpty
             ? null
             : _videoDescriptionController.text,
+        duration: duration,
         adminCode: adminCode,
       );
 
+      // مسح الحقول
       _videoTitleController.clear();
-      _videoUrlController.clear();
       _videoDescriptionController.clear();
+      _videoHoursController.text = '0';
+      _videoMinutesController.text = '0';
+      setState(() {
+        _selectedVideoFile = null;
+        _selectedPlatformFile = null;
+        _uploadedVideoUrl = null;
+      });
 
       // إعادة تحميل الفيديوهات بعد الإضافة
       if (_selectedCourseId != null) {
@@ -370,21 +527,113 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          // حقل رابط الفيديو
-                          CustomTextField(
-                            controller: _videoUrlController,
-                            hintText: 'رابط الفيديو (URL)',
-                            icon: Icons.link,
-                            textAlign: TextAlign.right,
-                            textDirection: TextDirection.ltr,
-                            keyboardType: TextInputType.url,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'الرجاء إدخال رابط الفيديو';
-                              }
-                              return null;
-                            },
+                          // زر اختيار ملف الفيديو
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: (_selectedVideoFile != null || _selectedPlatformFile != null)
+                                    ? AppColors.successColor
+                                    : AppColors.borderColor,
+                                width: 2,
+                              ),
+                            ),
+                            child: InkWell(
+                              onTap: _isLoading ? null : _pickVideoFile,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      (_selectedVideoFile != null || _selectedPlatformFile != null)
+                                          ? Icons.check_circle
+                                          : Icons.video_file,
+                                      color: (_selectedVideoFile != null || _selectedPlatformFile != null)
+                                          ? AppColors.successColor
+                                          : AppColors.primaryColor,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            (_selectedVideoFile != null || _selectedPlatformFile != null)
+                                                ? 'تم اختيار الفيديو'
+                                                : 'اختر ملف الفيديو',
+                                            style: AppStyles.textPrimaryStyle.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (_selectedVideoFile != null || _selectedPlatformFile != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              kIsWeb
+                                                  ? (_selectedPlatformFile?.name ?? '')
+                                                  : (_selectedVideoFile?.path.split('/').last ?? ''),
+                                              style: AppStyles.textSecondaryStyle.copyWith(
+                                                fontSize: 12,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    if (_selectedVideoFile != null || _selectedPlatformFile != null)
+                                      IconButton(
+                                        icon: const Icon(Icons.close),
+                                        onPressed: _isLoading
+                                            ? null
+                                            : () {
+                                                setState(() {
+                                                  _selectedVideoFile = null;
+                                                  _selectedPlatformFile = null;
+                                                  _uploadedVideoUrl = null;
+                                                });
+                                              },
+                                        color: AppColors.errorColor,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
+                          if (_uploadedVideoUrl != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.successColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.successColor,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: AppColors.successColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'تم رفع الفيديو بنجاح',
+                                      style: AppStyles.textPrimaryStyle.copyWith(
+                                        fontSize: 12,
+                                        color: AppColors.successColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           // حقل الوصف (اختياري)
                           CustomTextField(
@@ -394,6 +643,76 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
                             textAlign: TextAlign.right,
                             textDirection: TextDirection.rtl,
                             maxLines: 3,
+                          ),
+                          const SizedBox(height: 16),
+                          // حقول مدة الفيديو (الساعات والدقائق)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: _videoHoursController,
+                                  hintText: 'الساعات',
+                                  icon: Icons.access_time,
+                                  textAlign: TextAlign.center,
+                                  textDirection: TextDirection.ltr,
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'مطلوب';
+                                    }
+                                    final hours = int.tryParse(value);
+                                    if (hours == null || hours < 0 || hours > 99) {
+                                      return '0-99';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Text(
+                                  ':',
+                                  style: AppStyles.subHeadingStyle.copyWith(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: _videoMinutesController,
+                                  hintText: 'الدقائق',
+                                  icon: Icons.timer,
+                                  textAlign: TextAlign.center,
+                                  textDirection: TextDirection.ltr,
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'مطلوب';
+                                    }
+                                    final minutes = int.tryParse(value);
+                                    if (minutes == null || minutes < 0 || minutes > 59) {
+                                      return '0-59';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // نص توضيحي
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              'أدخل مدة الفيديو بالساعات (0-99) والدقائق (0-59)',
+                              style: AppStyles.textSecondaryStyle.copyWith(
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                           const SizedBox(height: 24),
                           // زر الإضافة
