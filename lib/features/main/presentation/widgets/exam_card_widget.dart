@@ -47,17 +47,20 @@ class ExamCardWidget extends StatelessWidget {
                 );
               },
           borderRadius: BorderRadius.circular(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ExamCardHeader(exam: exam, color: color),
-              _ExamCardContent(
+          child: ClipRect(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ExamCardHeader(exam: exam, color: color),
+                _ExamCardContent(
                 exam: exam,
                 color: color,
                 isCompleted: isCompleted,
                 score: score,
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -76,7 +79,7 @@ class _ExamCardHeader extends StatelessWidget {
     final isCompleted = exam['isCompleted'] as bool;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // تقليل padding من 20 إلى 16
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -89,6 +92,7 @@ class _ExamCardHeader extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -96,8 +100,8 @@ class _ExamCardHeader extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                  horizontal: 10, // تقليل من 12 إلى 10
+                  vertical: 5, // تقليل من 6 إلى 5
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.secondaryColor.withOpacity(0.2),
@@ -114,8 +118,8 @@ class _ExamCardHeader extends StatelessWidget {
               if (isCompleted)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 10, // تقليل من 12 إلى 10
+                    vertical: 5, // تقليل من 6 إلى 5
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.successColor.withOpacity(0.2),
@@ -142,11 +146,11 @@ class _ExamCardHeader extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // تقليل من 12 إلى 10
           Text(
             exam['title'] as String,
             style: AppStyles.subTextStyle.copyWith(
-              fontSize: 20,
+              fontSize: 18, // تقليل من 20 إلى 18
               fontWeight: FontWeight.bold,
             ),
             maxLines: 2,
@@ -174,20 +178,21 @@ class _ExamCardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // تقليل padding من 16 إلى 12
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             exam['description'] as String,
             style: AppStyles.textSecondaryStyle.copyWith(
-              fontSize: 14,
-              height: 1.4,
+              fontSize: 13, // تقليل من 14 إلى 13
+              height: 1.3, // تقليل من 1.4 إلى 1.3
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12), // تقليل من 16 إلى 12
           Row(
             children: [
               Expanded(
@@ -201,10 +206,10 @@ class _ExamCardContent extends StatelessWidget {
             ],
           ),
           if (isCompleted && score != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12), // تقليل من 16 إلى 12
             _ScoreWidget(score: score!),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 10), // تقليل من 12 إلى 10
           _StartButton(exam: exam, color: color, isCompleted: isCompleted),
         ],
       ),
@@ -235,6 +240,7 @@ class _InfoItemWidget extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 8),

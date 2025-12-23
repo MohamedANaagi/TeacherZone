@@ -1,5 +1,6 @@
 class AppRouters {
   static const String startScreen = '/';
+  static const String landingPageScreen = '/landing';
   static const String onBoardingScreen = '/OnBoardingScreen';
   static const String codeInputScreen = '/codeInputScreen';
   static const String mainScreen = '/mainScreen';

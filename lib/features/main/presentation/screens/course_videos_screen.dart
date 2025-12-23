@@ -300,25 +300,29 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                     if (mounted) {
                                       final videosCubit = context.read<VideosCubit>();
                                       final userCode = context.read<UserCubit>().state.code;
-                                      videosCubit.markVideoAsWatched(
+                                      await videosCubit.markVideoAsWatched(
                                         courseId,
                                         video['id'] as String,
                                         userCode: userCode,
                                       );
                                       // تحديث التقدم
-                                      _updateCourseProgress(context, courseId);
+                                      if (mounted) {
+                                        _updateCourseProgress(context, courseId);
+                                      }
                                     }
                                   },
-                                  onWatchedChanged: (courseId, videoId) {
+                                  onWatchedChanged: (courseId, videoId) async {
                                     final videosCubit = context.read<VideosCubit>();
                                     final userCode = context.read<UserCubit>().state.code;
-                                    videosCubit.markVideoAsWatched(
+                                    await videosCubit.markVideoAsWatched(
                                       courseId,
                                       videoId,
                                       userCode: userCode,
                                     );
                                     // تحديث التقدم
-                                    _updateCourseProgress(context, courseId);
+                                    if (mounted) {
+                                      _updateCourseProgress(context, courseId);
+                                    }
                                   },
                                 ),
                               ),

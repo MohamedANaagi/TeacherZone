@@ -14,6 +14,7 @@ abstract class AdminRemoteDataSource {
   Future<void> addCode(CodeModel code);
   Future<List<CodeModel>> getCodes({String? adminCode});
   Future<void> deleteCode(String codeId);
+  Future<void> updateCode(CodeModel code);
   Future<bool> validateCode(String code);
   Future<CodeModel?> getCodeByCode(String code);
 
@@ -28,6 +29,19 @@ abstract class AdminRemoteDataSource {
   Future<List<VideoModel>> getVideosByCourseId(String courseId, {String? adminCode});
   Future<void> deleteVideo(String videoId);
   Future<void> updateVideoCountForCourse(String courseId);
+
+  // Video Progress
+  Future<void> saveVideoProgress({
+    required String code,
+    required String courseId,
+    required String videoId,
+    required bool isWatched,
+  });
+  Future<Set<String>> getWatchedVideosForCourse({
+    required String code,
+    required String courseId,
+  });
+  Future<void> clearVideoProgressForCode({required String code});
 }
 
 class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
@@ -146,6 +160,18 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       await firestore.collection('codes').doc(codeId).delete();
     } catch (e) {
       throw ServerException('فشل حذف الكود: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> updateCode(CodeModel code) async {
+    try {
+      final data = code.toFirestore();
+      // إزالة الحقول الفارغة من null values للـ update
+      data.removeWhere((key, value) => value == null);
+      await firestore.collection('codes').doc(code.id).update(data);
+    } catch (e) {
+      throw ServerException('فشل تحديث الكود: ${e.toString()}');
     }
   }
 
@@ -343,6 +369,83 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
     } catch (e) {
       // لا نرمي exception هنا لأنها عملية مساعدة
       // يمكن أن تفشل إذا كان الكورس غير موجود، وهذا مقبول
+    }
+  }
+
+  // ==================== Video Progress ====================
+
+  @override
+  Future<void> saveVideoProgress({
+    required String code,
+    required String courseId,
+    required String videoId,
+    required bool isWatched,
+  }) async {
+    try {
+      // استخدام document ID مركب لتسهيل الاستعلامات
+      final docId = '${code}_${courseId}_$videoId';
+      
+      if (isWatched) {
+        // حفظ حالة المشاهدة
+        await firestore.collection('videoProgress').doc(docId).set({
+          'code': code,
+          'courseId': courseId,
+          'videoId': videoId,
+          'isWatched': true,
+          'watchedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+        // حذف حالة المشاهدة
+        await firestore.collection('videoProgress').doc(docId).delete();
+      }
+    } catch (e) {
+      throw ServerException('فشل حفظ تقدم الفيديو: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<Set<String>> getWatchedVideosForCourse({
+    required String code,
+    required String courseId,
+  }) async {
+    try {
+      final snapshot = await firestore
+          .collection('videoProgress')
+          .where('code', isEqualTo: code)
+          .where('courseId', isEqualTo: courseId)
+          .where('isWatched', isEqualTo: true)
+          .get();
+
+      final watchedVideos = <String>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final videoId = data['videoId'] as String?;
+        if (videoId != null) {
+          watchedVideos.add(videoId);
+        }
+      }
+
+      return watchedVideos;
+    } catch (e) {
+      throw ServerException('فشل جلب تقدم الفيديوهات: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> clearVideoProgressForCode({required String code}) async {
+    try {
+      final snapshot = await firestore
+          .collection('videoProgress')
+          .where('code', isEqualTo: code)
+          .get();
+
+      final batch = firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      throw ServerException('فشل حذف تقدم الفيديوهات: ${e.toString()}');
     }
   }
 }

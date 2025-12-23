@@ -1,8 +1,10 @@
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
+import '../../features/landing/presentation/screens/landing_page_screen.dart';
 import '../../features/main/presentation/screens/main_screen.dart';
 import '../../features/main/presentation/screens/course_videos_screen.dart';
 import '../../features/main/presentation/screens/video_player_screen.dart';
@@ -15,13 +17,20 @@ import 'app_routers.dart';
 
 class RouterGenerator {
   static final GoRouter router = GoRouter(
-    initialLocation: AppRouters.startScreen,
+    initialLocation: kIsWeb ? AppRouters.landingPageScreen : AppRouters.startScreen,
     routes: <GoRoute>[
       GoRoute(
         path: AppRouters.startScreen,
         name: AppRouters.startScreen,
         builder: (context, state) {
           return const StartScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.landingPageScreen,
+        name: AppRouters.landingPageScreen,
+        builder: (context, state) {
+          return const LandingPageScreen();
         },
       ),
       GoRoute(

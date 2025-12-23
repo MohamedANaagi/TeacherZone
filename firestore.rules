@@ -95,6 +95,32 @@ service cloud.firestore {
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 
+    // ==================== Video Progress Collection ====================
+    match /videoProgress/{progressId} {
+      // القراءة للجميع (المستخدمون يحتاجون قراءة تقدمهم)
+      allow read: if true;
+      
+      // الكتابة - السماح بإنشاء وتحديث وحذف تقدم الفيديوهات
+      // التحقق من وجود الحقول المطلوبة
+      allow create: if request.resource.data.keys().hasAll(['code', 'courseId', 'videoId', 'isWatched']) &&
+                       request.resource.data.code is string &&
+                       request.resource.data.courseId is string &&
+                       request.resource.data.videoId is string &&
+                       request.resource.data.isWatched is bool;
+      
+      allow update: if request.resource.data.keys().hasAll(['code', 'courseId', 'videoId', 'isWatched']) &&
+                       request.resource.data.code is string &&
+                       request.resource.data.courseId is string &&
+                       request.resource.data.videoId is string &&
+                       request.resource.data.isWatched is bool &&
+                       // التأكد من عدم تغيير code و courseId و videoId
+                       request.resource.data.code == resource.data.code &&
+                       request.resource.data.courseId == resource.data.courseId &&
+                       request.resource.data.videoId == resource.data.videoId;
+      
+      allow delete: if true; // السماح بالحذف (عند إلغاء حالة المشاهدة)
+    }
+
     // ==================== Default Deny ====================
     // رفض أي شيء آخر
     match /{document=**} {

@@ -12,6 +12,7 @@ abstract class AdminRepository {
   Future<void> addCode(CodeModel code);
   Future<List<CodeModel>> getCodes({String? adminCode});
   Future<void> deleteCode(String codeId);
+  Future<void> updateCode(CodeModel code);
   Future<bool> validateCode(String code);
   Future<CodeModel?> getCodeByCode(String code);
 
@@ -25,4 +26,17 @@ abstract class AdminRepository {
   Future<void> addVideo(VideoModel video);
   Future<List<VideoModel>> getVideosByCourseId(String courseId, {String? adminCode});
   Future<void> deleteVideo(String videoId);
+
+  // Video Progress
+  Future<void> saveVideoProgress({
+    required String code,
+    required String courseId,
+    required String videoId,
+    required bool isWatched,
+  });
+  Future<Set<String>> getWatchedVideosForCourse({
+    required String code,
+    required String courseId,
+  });
+  Future<void> clearVideoProgressForCode({required String code});
 }

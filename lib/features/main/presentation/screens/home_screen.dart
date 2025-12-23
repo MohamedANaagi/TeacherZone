@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
@@ -70,6 +71,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWeb = kIsWeb;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = isWeb && screenWidth > 800;
+    
     return BlocListener<UserCubit, UserState>(
       listener: (context, userState) {
         // عند تغيير بيانات المستخدم، إعادة تحميل البيانات
@@ -81,30 +86,35 @@ class _HomeScreenState extends State<HomeScreen> {
       child: RepaintBoundary(
         child: SafeArea(
           child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // بطاقة المستخدم في الأعلى
-                _buildUserCard(),
-                const SizedBox(height: 24),
+            child: Padding(
+              padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
+              child: ConstrainedBox(
+                constraints: isDesktop
+                    ? const BoxConstraints(maxWidth: 1000)
+                    : const BoxConstraints(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // بطاقة المستخدم في الأعلى
+                    _buildUserCard(),
+                    const SizedBox(height: 24),
 
-              // قسم تعريف عن المحتوى
-              const WelcomeSectionWidget(),
-              const SizedBox(height: 24),
+                    // قسم تعريف عن المحتوى
+                    const WelcomeSectionWidget(),
+                    const SizedBox(height: 24),
 
-              // إحصائيات سريعة
-              _buildStatsSection(),
-              const SizedBox(height: 24),
+                    // إحصائيات سريعة
+                    _buildStatsSection(),
+                    const SizedBox(height: 24),
 
-              // قسم الميزات
-              _buildFeaturesSection(),
-            ],
-          ),
+                    // قسم الميزات
+                    _buildFeaturesSection(),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-      ),
       ),
     );
   }

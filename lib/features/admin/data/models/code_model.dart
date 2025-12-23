@@ -31,7 +31,7 @@ class CodeModel {
       'code': code,
       'name': name,
       'phone': phone,
-      'description': description ?? '',
+      if (description != null && description!.isNotEmpty) 'description': description,
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
       'createdAt': createdAt.toIso8601String(),
       if (subscriptionEndDate != null)

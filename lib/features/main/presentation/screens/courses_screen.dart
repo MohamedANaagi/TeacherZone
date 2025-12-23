@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
@@ -120,16 +121,43 @@ class _CoursesScreenState extends State<CoursesScreen> {
               return _buildEmptyState();
             }
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: state.courses.length,
-              cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
-              itemBuilder: (context, index) {
-                return RepaintBoundary(
-                  child: _buildCourseCard(context, state.courses[index]),
-                );
-              },
-            );
+            // تصميم متجاوب للويب
+            final isWeb = kIsWeb;
+            final screenWidth = MediaQuery.of(context).size.width;
+            final isDesktop = isWeb && screenWidth > 800;
+            
+            if (isDesktop) {
+              // Grid Layout للويب
+              return Padding(
+                padding: const EdgeInsets.all(24),
+                child: GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: screenWidth > 1400 ? 3 : 2,
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 0.85, // تقليل النسبة لإعطاء مساحة أكبر للارتفاع
+                  ),
+                  itemCount: state.courses.length,
+                  itemBuilder: (context, index) {
+                    return RepaintBoundary(
+                      child: _buildCourseCard(context, state.courses[index]),
+                    );
+                  },
+                ),
+              );
+            } else {
+              // List Layout للموبايل
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: state.courses.length,
+                cacheExtent: 200,
+                itemBuilder: (context, index) {
+                  return RepaintBoundary(
+                    child: _buildCourseCard(context, state.courses[index]),
+                  );
+                },
+              );
+            }
           },
           ),
         ),
@@ -188,12 +216,14 @@ class _CoursesScreenState extends State<CoursesScreen> {
             }
           },
           borderRadius: BorderRadius.circular(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // صورة/أيقونة الكورس
-              Container(
-                height: 180,
+          child: ClipRect(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // صورة/أيقونة الكورس
+                Container(
+                  height: 160, // تقليل الارتفاع من 180 إلى 160
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -245,35 +275,36 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     ),
                   ],
                 ),
-              ),
-              // محتوى الكورس
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // العنوان
-                    Text(
-                      course['title'] as String,
-                      style: AppStyles.subHeadingStyle.copyWith(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                ),
+                // محتوى الكورس
+                Padding(
+                  padding: const EdgeInsets.all(12), // تقليل padding من 16 إلى 12
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // العنوان
+                      Text(
+                        course['title'] as String,
+                        style: AppStyles.subHeadingStyle.copyWith(
+                          fontSize: 16, // تقليل حجم الخط من 18 إلى 16
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // الوصف
-                    Text(
-                      course['description'] as String,
-                      style: AppStyles.textSecondaryStyle.copyWith(
-                        fontSize: 13,
-                        height: 1.4,
+                      const SizedBox(height: 6), // تقليل المسافة من 8 إلى 6
+                      // الوصف
+                      Text(
+                        course['description'] as String,
+                        style: AppStyles.textSecondaryStyle.copyWith(
+                          fontSize: 12, // تقليل حجم الخط من 13 إلى 12
+                          height: 1.3, // تقليل height من 1.4 إلى 1.3
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 10), // تقليل المسافة من 12 إلى 10
                     // معلومات الكورس
                     Row(
                       children: [
@@ -288,7 +319,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10), // تقليل المسافة من 12 إلى 10
                     // التقدم والمدة
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -296,6 +327,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                         // شريط التقدم
                         Expanded(
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
@@ -366,6 +398,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),

@@ -7,7 +7,7 @@ class VideoItemWidget extends StatefulWidget {
   final Color courseColor;
   final VoidCallback? onTap;
   final String courseId;
-  final Function(String, String)? onWatchedChanged;
+  final Future<void> Function(String, String)? onWatchedChanged;
 
   const VideoItemWidget({
     super.key,
@@ -113,9 +113,9 @@ class _VideoItemWidgetState extends State<VideoItemWidget>
                   // Checkbox
                   _CheckboxWidget(
                     isWatched: isWatched,
-                    onChanged: () {
+                    onChanged: () async {
                       if (widget.onWatchedChanged != null) {
-                        widget.onWatchedChanged!(
+                        await widget.onWatchedChanged!(
                           widget.courseId,
                           widget.video['id'] as String,
                         );

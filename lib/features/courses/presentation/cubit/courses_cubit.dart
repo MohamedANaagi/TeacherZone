@@ -84,10 +84,11 @@ class CoursesCubit extends Cubit<CoursesState> {
     int progress = 0;
     if (userCode != null && userCode.isNotEmpty) {
       try {
-        // جلب الفيديوهات المشاهدة للكورس
+        // جلب الفيديوهات المشاهدة للكورس (من Firestore أولاً للمزامنة)
         final watchedVideos = await VideoProgressService.getWatchedVideosForCourse(
           code: userCode,
           courseId: course.id,
+          preferRemote: true, // تفضيل البيانات من Firestore للمزامنة
         );
 
         // جلب adminCode من الكورس
@@ -137,10 +138,11 @@ class CoursesCubit extends Cubit<CoursesState> {
     }
 
     try {
-      // جلب الفيديوهات المشاهدة للكورس
+      // جلب الفيديوهات المشاهدة للكورس (من Firestore أولاً للمزامنة)
       final watchedVideos = await VideoProgressService.getWatchedVideosForCourse(
         code: userCode,
         courseId: courseId,
+        preferRemote: true, // تفضيل البيانات من Firestore للمزامنة
       );
 
       // جلب الكورس للحصول على adminCode

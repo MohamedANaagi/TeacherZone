@@ -119,23 +119,64 @@ class _StartScreenState extends State<StartScreen>
     if (isLoggedIn) {
       // إذا كان المستخدم مسجل دخول، الانتقال للشاشة الرئيسية
       if (mounted) {
-        context.go(AppRouters.mainScreen);
+        try {
+          context.go(AppRouters.mainScreen);
+        } catch (e) {
+          debugPrint('خطأ في الانتقال للشاشة الرئيسية: $e');
+          // محاولة بديلة
+          try {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(AppRouters.mainScreen);
+            }
+          } catch (_) {
+            debugPrint('فشل الانتقال بالكامل');
+          }
+        }
       }
       return;
     }
 
     // التحقق من إذا كان تم عرض الـ Onboarding من قبل
-    final isCompleted = await OnboardingService.isOnboardingCompleted();
+    bool isCompleted = false;
+    try {
+      isCompleted = await OnboardingService.isOnboardingCompleted();
+    } catch (e) {
+      debugPrint('خطأ في التحقق من Onboarding: $e');
+      // في حالة الخطأ، نعتبر أنه لم يتم إكمال Onboarding
+      isCompleted = false;
+    }
 
     if (isCompleted) {
       // إذا تم عرضها من قبل، الانتقال مباشرة لشاشة تسجيل الدخول
       if (mounted) {
-        context.go(AppRouters.codeInputScreen);
+        try {
+          context.go(AppRouters.codeInputScreen);
+        } catch (e) {
+          debugPrint('خطأ في الانتقال لشاشة تسجيل الدخول: $e');
+          try {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(AppRouters.codeInputScreen);
+            }
+          } catch (_) {
+            debugPrint('فشل الانتقال بالكامل');
+          }
+        }
       }
     } else {
       // إذا لم يتم عرضها، الانتقال لشاشة الـ Onboarding
       if (mounted) {
-        context.go(AppRouters.onBoardingScreen);
+        try {
+          context.go(AppRouters.onBoardingScreen);
+        } catch (e) {
+          debugPrint('خطأ في الانتقال لشاشة Onboarding: $e');
+          try {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(AppRouters.onBoardingScreen);
+            }
+          } catch (_) {
+            debugPrint('فشل الانتقال بالكامل');
+          }
+        }
       }
     }
   }

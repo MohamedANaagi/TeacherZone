@@ -114,6 +114,18 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           codeModel.subscriptionEndDate ??
           DateTime.now().add(const Duration(days: 30));
 
+      // مزامنة تقدم الفيديوهات من Firestore (للمزامنة بين الأجهزة)
+      try {
+        await VideoProgressService.syncProgressFromFirestore(
+          code: code,
+          adminCode: codeModel.adminCode, // تصفية الكورسات حسب adminCode
+        );
+        debugPrint('✅ تمت مزامنة تقدم الفيديوهات من Firestore للكود: $code');
+      } catch (e) {
+        // لا نمنع تسجيل الدخول إذا فشلت المزامنة
+        debugPrint('تحذير: فشلت مزامنة تقدم الفيديوهات: $e');
+      }
+
       // إنشاء UserModel مع معرف فريد وبيانات المستخدم من الكود
       // ملاحظة: رابط الصورة سيتم جلبه من UserCubit عند الحاجة
       // ملاحظة: adminCode سيتم جلبه وحفظه في UserCubit منفصلاً في login_screen

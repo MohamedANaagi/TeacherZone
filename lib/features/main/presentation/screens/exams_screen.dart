@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
@@ -11,6 +12,10 @@ class ExamsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isWeb = kIsWeb;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = isWeb && screenWidth > 800;
+    
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
@@ -51,16 +56,39 @@ class ExamsScreen extends StatelessWidget {
             return _buildEmptyState();
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: state.exams.length,
-            cacheExtent: 200, // تحسين الأداء للقوائم الطويلة
-            itemBuilder: (context, index) {
-              return RepaintBoundary(
-                child: ExamCardWidget(exam: state.exams[index]),
-              );
-            },
-          );
+          // تصميم متجاوب للويب
+          if (isDesktop) {
+            // Grid Layout للويب
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: screenWidth > 1400 ? 3 : 2,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  childAspectRatio: 0.85, // تقليل النسبة لإعطاء مساحة أكبر للارتفاع
+                ),
+                itemCount: state.exams.length,
+                itemBuilder: (context, index) {
+                  return RepaintBoundary(
+                    child: ExamCardWidget(exam: state.exams[index]),
+                  );
+                },
+              ),
+            );
+          } else {
+            // List Layout للموبايل
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: state.exams.length,
+              cacheExtent: 200,
+              itemBuilder: (context, index) {
+                return RepaintBoundary(
+                  child: ExamCardWidget(exam: state.exams[index]),
+                );
+              },
+            );
+          }
         },
         ),
       ),

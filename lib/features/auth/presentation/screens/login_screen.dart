@@ -90,12 +90,28 @@ class _CodeInputScreenState extends State<CodeInputScreen>
   /// بدء تشغيل Animations بشكل متدرج
   /// Fade يبدأ أولاً، ثم Slide بعد 300ms، ثم Scale بعد 500ms
   void _startAnimations() {
-    _fadeController.forward();
+    try {
+      _fadeController.forward();
+    } catch (e) {
+      debugPrint('خطأ في تشغيل fade animation: $e');
+    }
     Future.delayed(const Duration(milliseconds: 300), () {
-      _slideController.forward();
+      if (mounted) {
+        try {
+          _slideController.forward();
+        } catch (e) {
+          debugPrint('خطأ في تشغيل slide animation: $e');
+        }
+      }
     });
     Future.delayed(const Duration(milliseconds: 500), () {
-      _scaleController.forward();
+      if (mounted) {
+        try {
+          _scaleController.forward();
+        } catch (e) {
+          debugPrint('خطأ في تشغيل scale animation: $e');
+        }
+      }
     });
   }
 
@@ -124,9 +140,11 @@ class _CodeInputScreenState extends State<CodeInputScreen>
     }
 
     // تفعيل حالة التحميل
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       // جمع البيانات من الحقول
@@ -139,7 +157,9 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       String? profileImagePath;
       try {
         debugPrint('محاولة تحميل الصورة للكود: $code');
-        profileImagePath = await ImageStorageService.getProfileImagePath(code: code);
+        profileImagePath = await ImageStorageService.getProfileImagePath(
+          code: code,
+        );
         if (profileImagePath != null) {
           debugPrint('تم العثور على الصورة: $profileImagePath');
         } else {
@@ -153,27 +173,52 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       // جلب adminCode من الكود
       String? adminCode;
       try {
-        adminCode = await InjectionContainer.adminRepo.getAdminCodeByUserCode(code);
+        adminCode = await InjectionContainer.adminRepo.getAdminCodeByUserCode(
+          code,
+        );
       } catch (e) {
         debugPrint('⚠️ خطأ في جلب adminCode: $e');
       }
 
       // حفظ بيانات المستخدم في UserCubit
       if (!mounted) return;
-      final userCubit = context.read<UserCubit>();
-      await userCubit.updateUser(
-        name: user.name,
-        phone: user.phone,
-        code: code,
-        adminCode: adminCode,
-        imagePath: profileImagePath,
-        subscriptionEndDate: user.subscriptionEndDate,
-        isLoggedIn: true,
-      );
+      try {
+        final userCubit = context.read<UserCubit>();
+        await userCubit.updateUser(
+          name: user.name,
+          phone: user.phone,
+          code: code,
+          adminCode: adminCode,
+          imagePath: profileImagePath,
+          subscriptionEndDate: user.subscriptionEndDate,
+          isLoggedIn: true,
+        );
+      } catch (e) {
+        debugPrint('خطأ في حفظ بيانات المستخدم: $e');
+        if (mounted) {
+          ErrorSnackBarHelper.showError(
+            context,
+            'حدث خطأ في حفظ بيانات المستخدم',
+          );
+        }
+        return;
+      }
 
       // الانتقال للشاشة الرئيسية
       if (mounted) {
-        context.go(AppRouters.mainScreen);
+        try {
+          context.go(AppRouters.mainScreen);
+        } catch (e) {
+          debugPrint('خطأ في الانتقال للشاشة الرئيسية: $e');
+          // محاولة بديلة
+          try {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed(AppRouters.mainScreen);
+            }
+          } catch (_) {
+            debugPrint('فشل الانتقال بالكامل');
+          }
+        }
       }
     } on ValidationException catch (e) {
       // معالجة أخطاء التحقق من البيانات
@@ -207,6 +252,44 @@ class _CodeInputScreenState extends State<CodeInputScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primaryColor,
+      appBar: kIsWeb
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryColor.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: AppColors.secondaryColor,
+                    size: 24,
+                  ),
+                ),
+                onPressed: () {
+                  // الرجوع إلى صفحة Landing Page في الويب فقط
+                  try {
+                    if (mounted) {
+                      context.go(AppRouters.landingPageScreen);
+                    }
+                  } catch (e) {
+                    debugPrint('خطأ في الرجوع إلى Landing Page: $e');
+                    // محاولة بديلة باستخدام Navigator
+                    try {
+                      if (mounted && Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    } catch (_) {
+                      debugPrint('فشل الرجوع بالكامل');
+                    }
+                  }
+                },
+              ),
+            )
+          : null, // لا يوجد AppBar في الموبايل
       body: Container(
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
@@ -361,34 +444,48 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
 
   Future<void> _handleSubmit() async {
     final enteredCode = _codeController.text.trim();
-    
+
     if (enteredCode.isEmpty) {
       ErrorSnackBarHelper.showError(context, 'الرجاء إدخال كود الأدمن');
       return;
     }
 
     // إظهار loading indicator
-    if (mounted) {
+    if (!mounted) return;
+    bool loadingDialogShown = false;
+    try {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
+      loadingDialogShown = true;
+    } catch (e) {
+      debugPrint('خطأ في إظهار loading dialog: $e');
     }
 
     try {
       // البحث مباشرة في collection adminCodes
-      final adminCode = await InjectionContainer.adminRepo.getAdminCodeByCode(enteredCode);
-      
-      if (mounted) {
-        Navigator.of(context).pop(); // إغلاق loading dialog
+      final adminCode = await InjectionContainer.adminRepo.getAdminCodeByCode(
+        enteredCode,
+      );
+
+      // إغلاق loading dialog
+      if (mounted && loadingDialogShown) {
+        try {
+          Navigator.of(context).pop();
+        } catch (e) {
+          debugPrint('خطأ في إغلاق loading dialog: $e');
+        }
       }
 
       if (adminCode == null || adminCode.isEmpty) {
         if (mounted) {
-          Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+          try {
+            Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+          } catch (e) {
+            debugPrint('خطأ في إغلاق dialog: $e');
+          }
           ErrorSnackBarHelper.showError(context, 'كود الأدمن غير صحيح');
         }
         return;
@@ -396,23 +493,64 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
 
       // حفظ adminCode في UserCubit
       if (mounted) {
-        final userCubit = context.read<UserCubit>();
-        await userCubit.updateUser(
-          adminCode: adminCode,
-          isLoggedIn: true,
-        );
-        
+        try {
+          final userCubit = context.read<UserCubit>();
+          await userCubit.updateUser(adminCode: adminCode, isLoggedIn: true);
+        } catch (e) {
+          debugPrint('خطأ في حفظ adminCode: $e');
+          if (mounted) {
+            try {
+              Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+            } catch (_) {}
+            ErrorSnackBarHelper.showError(
+              context,
+              'حدث خطأ في حفظ بيانات الأدمن',
+            );
+          }
+          return;
+        }
+
         // الانتقال لشاشة الأدمن
-        Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
-        context.push(AppRouters.adminMainScreen);
+        if (mounted) {
+          try {
+            Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
+            context.push(AppRouters.adminMainScreen);
+          } catch (e) {
+            debugPrint('خطأ في الانتقال لشاشة الأدمن: $e');
+            // محاولة بديلة
+            try {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+              if (mounted) {
+                Navigator.of(context).pushNamed(AppRouters.adminMainScreen);
+              }
+            } catch (_) {
+              debugPrint('فشل الانتقال بالكامل');
+            }
+          }
+        }
       }
     } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // إغلاق loading dialog
-        Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
-        ErrorSnackBarHelper.showError(context, 'حدث خطأ أثناء التحقق من كود الأدمن');
-      }
       debugPrint('خطأ في التحقق من كود الأدمن: $e');
+      if (mounted) {
+        // إغلاق loading dialog إذا كان مفتوحاً
+        if (loadingDialogShown) {
+          try {
+            Navigator.of(context).pop();
+          } catch (_) {}
+        }
+        // إغلاق dialog كود الأدمن
+        try {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        } catch (_) {}
+        ErrorSnackBarHelper.showError(
+          context,
+          'حدث خطأ أثناء التحقق من كود الأدمن',
+        );
+      }
     }
   }
 
@@ -432,9 +570,7 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
           labelText: 'أدخل كود الأدمن',
           labelStyle: AppStyles.textSecondaryStyle,
           hintText: 'أدخل الكود هنا',
-          hintStyle: AppStyles.textSecondaryStyle.copyWith(
-            fontSize: 14,
-          ),
+          hintStyle: AppStyles.textSecondaryStyle.copyWith(fontSize: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: AppColors.borderColor),
@@ -469,7 +605,13 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
       actions: [
         TextButton(
           onPressed: () {
-            Navigator.of(context).pop();
+            try {
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            } catch (e) {
+              debugPrint('خطأ في إغلاق dialog: $e');
+            }
           },
           child: Text(
             'إلغاء',

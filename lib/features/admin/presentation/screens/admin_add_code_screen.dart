@@ -285,6 +285,19 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     }
   }
 
+  /// عرض dialog لتعديل الكود
+  Future<void> _showEditCodeDialog(CodeModel code) async {
+    await showDialog(
+      context: context,
+      builder: (context) => _EditCodeDialog(
+        code: code,
+        onCodeUpdated: () {
+          _loadCodes();
+        },
+      ),
+    );
+  }
+
   Future<void> _deleteCode(String codeId) async {
     try {
       // الحصول على adminCode من UserCubit (المسجل عند تسجيل الدخول)
@@ -651,6 +664,12 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                                       Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          IconButton(
+                                            onPressed: () => _showEditCodeDialog(code),
+                                            icon: const Icon(Icons.edit),
+                                            color: AppColors.primaryColor,
+                                            tooltip: 'تعديل الكود',
+                                          ),
                                           if (code.deviceId != null)
                                             IconButton(
                                               onPressed: () => _resetDeviceForCode(code.id),
@@ -679,6 +698,274 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Widget منفصل لـ dialog التعديل
+class _EditCodeDialog extends StatefulWidget {
+  final CodeModel code;
+  final VoidCallback onCodeUpdated;
+
+  const _EditCodeDialog({
+    required this.code,
+    required this.onCodeUpdated,
+  });
+
+  @override
+  State<_EditCodeDialog> createState() => _EditCodeDialogState();
+}
+
+class _EditCodeDialogState extends State<_EditCodeDialog> {
+  late final TextEditingController editCodeController;
+  late final TextEditingController editNameController;
+  late final TextEditingController editPhoneController;
+  late final TextEditingController editDescriptionController;
+  late final TextEditingController editSubscriptionDaysController;
+  final editFormKey = GlobalKey<FormState>();
+  bool isUpdating = false;
+  bool isDialogOpen = true;
+
+  @override
+  void initState() {
+    super.initState();
+    editCodeController = TextEditingController(text: widget.code.code);
+    editNameController = TextEditingController(text: widget.code.name);
+    editPhoneController = TextEditingController(text: widget.code.phone);
+    editDescriptionController = TextEditingController(text: widget.code.description ?? '');
+    
+    // حساب الأيام المتبقية
+    int? currentDays;
+    if (widget.code.subscriptionEndDate != null) {
+      final now = DateTime.now();
+      final difference = widget.code.subscriptionEndDate!.difference(now);
+      currentDays = difference.inDays > 0 ? difference.inDays : 0;
+    }
+    editSubscriptionDaysController = TextEditingController(
+      text: currentDays != null ? currentDays.toString() : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    // تنظيف Controllers في dispose
+    editCodeController.dispose();
+    editNameController.dispose();
+    editPhoneController.dispose();
+    editDescriptionController.dispose();
+    editSubscriptionDaysController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.secondaryColor,
+      title: Text(
+        'تعديل الكود',
+        style: AppStyles.subHeadingStyle.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: editFormKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // حقل الكود
+              CustomTextField(
+                controller: editCodeController,
+                hintText: 'الكود',
+                icon: Icons.vpn_key,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'الرجاء إدخال الكود';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // حقل الاسم
+              CustomTextField(
+                controller: editNameController,
+                hintText: 'اسم الطالب',
+                icon: Icons.person_outline,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'الرجاء إدخال اسم الطالب';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // حقل رقم الهاتف
+              CustomTextField(
+                controller: editPhoneController,
+                hintText: 'رقم الهاتف',
+                icon: Icons.phone_outlined,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'الرجاء إدخال رقم الهاتف';
+                  }
+                  final cleanPhone = value.replaceAll(RegExp(r'[^\d]'), '');
+                  if (cleanPhone.length < 10 || cleanPhone.length > 15) {
+                    return 'رقم الهاتف يجب أن يحتوي على 10-15 رقم';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              // حقل الوصف
+              CustomTextField(
+                controller: editDescriptionController,
+                hintText: 'الوصف (اختياري)',
+                icon: Icons.description,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              // حقل عدد الأيام المتبقية
+              CustomTextField(
+                controller: editSubscriptionDaysController,
+                hintText: 'عدد الأيام المتبقية (اختياري)',
+                icon: Icons.calendar_today,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    final days = int.tryParse(value);
+                    if (days == null || days < 0) {
+                      return 'عدد الأيام يجب أن يكون رقماً صحيحاً أكبر من أو يساوي صفر';
+                    }
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: isUpdating
+              ? null
+              : () {
+                  isDialogOpen = false;
+                  Navigator.of(context).pop();
+                },
+          child: Text(
+            'إلغاء',
+            style: AppStyles.textPrimaryStyle.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: isUpdating
+              ? null
+              : () async {
+                  if (!editFormKey.currentState!.validate()) return;
+
+                  // إغلاق لوحة المفاتيح
+                  FocusScope.of(context).unfocus();
+
+                  setState(() => isUpdating = true);
+
+                  try {
+                    // الحصول على adminCode
+                    final adminCode = context.read<UserCubit>().state.adminCode;
+                    if (adminCode == null || adminCode.isEmpty) {
+                      throw Exception('كود الأدمن غير موجود');
+                    }
+
+                    // تحويل عدد الأيام
+                    int? subscriptionDays;
+                    if (editSubscriptionDaysController.text.isNotEmpty) {
+                      subscriptionDays = int.tryParse(editSubscriptionDaysController.text);
+                      if (subscriptionDays == null || subscriptionDays < 0) {
+                        throw Exception('عدد الأيام يجب أن يكون رقماً صحيحاً');
+                      }
+                    }
+
+                    // تحديث الكود
+                    await InjectionContainer.updateCodeUseCase(
+                      codeId: widget.code.id,
+                      code: editCodeController.text.trim(),
+                      name: editNameController.text.trim(),
+                      phone: editPhoneController.text.trim(),
+                      description: editDescriptionController.text.trim().isEmpty
+                          ? null
+                          : editDescriptionController.text.trim(),
+                      subscriptionDays: subscriptionDays,
+                      adminCode: adminCode,
+                    );
+
+                    if (mounted) {
+                      isDialogOpen = false;
+                      Navigator.of(context).pop();
+                      // انتظار إغلاق الـ dialog بالكامل قبل إعادة تحميل الأكواد
+                      await Future.microtask(() {});
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      if (mounted) {
+                        widget.onCodeUpdated();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تم تحديث الكود بنجاح'),
+                            backgroundColor: AppColors.successColor,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (!mounted) return;
+                    // التحقق من أن الـ dialog ما زال مفتوحاً قبل تحديث state
+                    if (isDialogOpen) {
+                      setState(() => isUpdating = false);
+                    }
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('فشل تحديث الكود: ${e.toString()}'),
+                          backgroundColor: AppColors.errorColor,
+                        ),
+                      );
+                    }
+                  }
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryColor,
+          ),
+          child: isUpdating
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.secondaryColor,
+                    ),
+                  ),
+                )
+              : Text(
+                  'حفظ',
+                  style: AppStyles.textPrimaryStyle.copyWith(
+                    color: AppColors.secondaryColor,
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

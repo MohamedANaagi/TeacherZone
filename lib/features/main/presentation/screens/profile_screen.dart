@@ -153,6 +153,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWeb = kIsWeb;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = isWeb && screenWidth > 800;
+    
     return BlocBuilder<UserCubit, UserState>(
       buildWhen: (previous, current) =>
           previous.name != current.name ||
@@ -163,8 +167,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return SafeArea(
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
+              padding: EdgeInsets.all(isDesktop ? 32.0 : 24.0),
+              child: ConstrainedBox(
+                constraints: isDesktop
+                    ? const BoxConstraints(maxWidth: 800)
+                    : const BoxConstraints(),
+                child: Column(
                 children: [
                   const SizedBox(height: 20),
 
@@ -181,8 +189,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // زر تسجيل الخروج
                 _buildLogoutButton(),
               ],
+                ),
+              ),
             ),
-          ),
           ),
         );
       },

@@ -85,6 +85,18 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<void> updateCode(CodeModel code) async {
+    try {
+      await remoteDataSource.updateCode(code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء تحديث الكود');
+    }
+  }
+
+  @override
   Future<bool> validateCode(String code) async {
     try {
       return await remoteDataSource.validateCode(code);
@@ -189,6 +201,60 @@ class AdminRepositoryImpl implements AdminRepository {
         rethrow;
       }
       throw ServerException('حدث خطأ أثناء حذف الفيديو');
+    }
+  }
+
+  // ==================== Video Progress ====================
+
+  @override
+  Future<void> saveVideoProgress({
+    required String code,
+    required String courseId,
+    required String videoId,
+    required bool isWatched,
+  }) async {
+    try {
+      await remoteDataSource.saveVideoProgress(
+        code: code,
+        courseId: courseId,
+        videoId: videoId,
+        isWatched: isWatched,
+      );
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء حفظ تقدم الفيديو');
+    }
+  }
+
+  @override
+  Future<Set<String>> getWatchedVideosForCourse({
+    required String code,
+    required String courseId,
+  }) async {
+    try {
+      return await remoteDataSource.getWatchedVideosForCourse(
+        code: code,
+        courseId: courseId,
+      );
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء جلب تقدم الفيديوهات');
+    }
+  }
+
+  @override
+  Future<void> clearVideoProgressForCode({required String code}) async {
+    try {
+      await remoteDataSource.clearVideoProgressForCode(code: code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء حذف تقدم الفيديوهات');
     }
   }
 }

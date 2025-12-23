@@ -6,6 +6,7 @@ import '../../features/admin/data/datasources/admin_remote_datasource.dart';
 import '../../features/admin/data/repositories/admin_repository_impl.dart';
 import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/admin/domain/usecases/add_code_usecase.dart';
+import '../../features/admin/domain/usecases/update_code_usecase.dart';
 import '../../features/admin/domain/usecases/add_course_usecase.dart';
 import '../../features/admin/domain/usecases/add_video_usecase.dart';
 
@@ -31,6 +32,9 @@ class InjectionContainer {
 
   // Admin Use Cases
   static AddCodeUseCase get addCodeUseCase => AddCodeUseCase(adminRepository);
+
+  static UpdateCodeUseCase get updateCodeUseCase =>
+      UpdateCodeUseCase(adminRepository);
 
   static AddCourseUseCase get addCourseUseCase =>
       AddCourseUseCase(adminRepository);

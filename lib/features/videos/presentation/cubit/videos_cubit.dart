@@ -52,6 +52,7 @@ class VideosCubit extends Cubit<VideosState> {
         watchedVideos = await VideoProgressService.getWatchedVideosForCourse(
           code: userCode,
           courseId: courseId,
+          preferRemote: true, // تفضيل البيانات من Firestore للمزامنة
         );
         debugPrint('تم تحميل ${watchedVideos.length} فيديو مشاهد للكود: $userCode');
       }
@@ -142,15 +143,15 @@ class VideosCubit extends Cubit<VideosState> {
   /// [courseId] - معرف الكورس
   /// [videoId] - معرف الفيديو المراد تحديث حالته
   /// [isWatched] - حالة المشاهدة (اختياري، إذا لم يتم تمريره يتم toggle الحالة الحالية)
-  /// [userCode] - كود المستخدم (لحفظ الحالة في SharedPreferences)
+  /// [userCode] - كود المستخدم (لحفظ الحالة في SharedPreferences و Firestore)
   ///
-  /// يحدث حالة المشاهدة للفيديو في State ويحفظها في SharedPreferences
-  void markVideoAsWatched(
+  /// يحدث حالة المشاهدة للفيديو في State ويحفظها في SharedPreferences و Firestore
+  Future<void> markVideoAsWatched(
     String courseId,
     String videoId, {
     bool? isWatched,
     String? userCode,
-  }) {
+  }) async {
     final videos = state.getVideosForCourse(courseId);
     final updatedVideos = videos.map((video) {
       if (video['id'] == videoId) {
@@ -158,22 +159,31 @@ class VideosCubit extends Cubit<VideosState> {
         final currentWatched = video['isWatched'] as bool;
         final newWatched = isWatched ?? !currentWatched;
         
-        // حفظ الحالة في SharedPreferences إذا كان هناك كود
-        if (userCode != null && userCode.isNotEmpty) {
-          VideoProgressService.saveVideoWatchedStatus(
-            code: userCode,
-            courseId: courseId,
-            videoId: videoId,
-            isWatched: newWatched,
-          );
-        }
-        
         return {...video, 'isWatched': newWatched};
       }
       return video;
     }).toList();
 
+    // تحديث State أولاً لإظهار التغيير فوراً
     emit(state.copyWith(courseId: courseId, videosForCourse: updatedVideos));
+    
+    // حفظ الحالة في SharedPreferences و Firestore إذا كان هناك كود
+    if (userCode != null && userCode.isNotEmpty) {
+      final currentWatched = videos.firstWhere(
+        (v) => v['id'] == videoId,
+        orElse: () => {'isWatched': false},
+      )['isWatched'] as bool;
+      final newWatched = isWatched ?? !currentWatched;
+      
+      // حفظ في SharedPreferences و Firestore (await للتأكد من اكتمال الحفظ)
+      await VideoProgressService.saveVideoWatchedStatus(
+        code: userCode,
+        courseId: courseId,
+        videoId: videoId,
+        isWatched: newWatched,
+      );
+      debugPrint('✅ تم حفظ حالة المشاهدة للفيديو $videoId في Firestore');
+    }
   }
 
   /// حساب نسبة التقدم للكورس بناءً على الفيديوهات المشاهدة
