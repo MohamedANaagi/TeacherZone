@@ -21,20 +21,42 @@ class CourseVideosScreen extends StatefulWidget {
 }
 
 class _CourseVideosScreenState extends State<CourseVideosScreen> {
+  bool _hasLoadedVideos = false;
+
   @override
   void initState() {
     super.initState();
     // تحميل فيديوهات الكورس عند فتح الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final courseId = widget.course['id'] as String;
-        final userCode = context.read<UserCubit>().state.code;
-        context.read<VideosCubit>().loadCourseVideos(
-          courseId,
-          userCode: userCode,
-        );
-      }
+      _loadVideosIfReady();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // إعادة تحميل الفيديوهات عند تغيير dependencies (مثل reload في الويب)
+    if (!_hasLoadedVideos) {
+      _loadVideosIfReady();
+    }
+  }
+
+  void _loadVideosIfReady() {
+    if (!mounted || _hasLoadedVideos) return;
+    
+    final courseId = widget.course['id'] as String;
+    final userState = context.read<UserCubit>().state;
+    // التأكد من أن البيانات محملة (إما code أو adminCode موجود)
+    if (userState.code != null || userState.adminCode != null) {
+      final userCode = userState.code;
+      final adminCode = userState.adminCode;
+      context.read<VideosCubit>().loadCourseVideos(
+        courseId,
+        userCode: userCode,
+        adminCode: adminCode,
+      );
+      _hasLoadedVideos = true;
+    }
   }
 
   @override
@@ -215,10 +237,16 @@ class _CourseVideosScreenState extends State<CourseVideosScreen> {
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: () {
-                                    final userCode = context.read<UserCubit>().state.code;
+                                    final userState = context.read<UserCubit>().state;
+                                    final userCode = userState.code;
+                                    final adminCode = userState.adminCode;
                                     context
                                         .read<VideosCubit>()
-                                        .loadCourseVideos(courseId, userCode: userCode);
+                                        .loadCourseVideos(
+                                          courseId,
+                                          userCode: userCode,
+                                          adminCode: adminCode,
+                                        );
                                   },
                                   child: const Text('إعادة المحاولة'),
                                 ),

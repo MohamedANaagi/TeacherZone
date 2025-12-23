@@ -17,6 +17,7 @@ class CoursesCubit extends Cubit<CoursesState> {
   /// تحميل الكورسات من Firestore
   ///
   /// [userCode] - كود المستخدم (لحساب التقدم من الفيديوهات المشاهدة)
+  /// [adminCode] - كود الأدمن (للتصفية - يتم استخدامه مباشرة إذا كان موجوداً)
   ///
   /// الخطوات:
   /// 1. تفعيل حالة التحميل (isLoading = true)
@@ -24,19 +25,21 @@ class CoursesCubit extends Cubit<CoursesState> {
   /// 3. تحويل CourseModel إلى Map<String, dynamic> مع حساب التقدم من الفيديوهات المشاهدة
   /// 4. تحديث State بالكورسات المحملة
   /// 5. في حالة الخطأ، حفظ رسالة الخطأ في State
-  Future<void> loadCourses({String? userCode}) async {
+  Future<void> loadCourses({String? userCode, String? adminCode}) async {
     emit(state.copyWith(isLoading: true, clearError: true));
 
     try {
-      // جلب adminCode من كود المستخدم
-      String? adminCode;
-      if (userCode != null && userCode.isNotEmpty) {
-        final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
-        adminCode = codeModel?.adminCode;
+      // استخدام adminCode مباشرة إذا كان موجوداً، وإلا جلب من userCode
+      String? finalAdminCode = adminCode;
+      if (finalAdminCode == null || finalAdminCode.isEmpty) {
+        if (userCode != null && userCode.isNotEmpty) {
+          final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
+          finalAdminCode = codeModel?.adminCode;
+        }
       }
       
       // جلب الكورسات من Firestore عبر AdminRepository مع تصفية حسب adminCode
-      final courseModels = await InjectionContainer.adminRepo.getCourses(adminCode: adminCode);
+      final courseModels = await InjectionContainer.adminRepo.getCourses(adminCode: finalAdminCode);
 
       // تحويل CourseModel إلى Map<String, dynamic> مع حساب التقدم
       final courses = await Future.wait(

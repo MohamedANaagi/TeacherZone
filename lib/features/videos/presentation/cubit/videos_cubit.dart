@@ -15,6 +15,7 @@ class VideosCubit extends Cubit<VideosState> {
   ///
   /// [courseId] - معرف الكورس المراد جلب فيديوهاته
   /// [userCode] - كود المستخدم (لتحميل حالة المشاهدة المحفوظة)
+  /// [adminCode] - كود الأدمن (للتصفية - يتم استخدامه مباشرة إذا كان موجوداً)
   ///
   /// الخطوات:
   /// 1. تفعيل حالة التحميل للكورس المحدد
@@ -22,7 +23,7 @@ class VideosCubit extends Cubit<VideosState> {
   /// 3. تحويل VideoModel إلى Map<String, dynamic> مع تحميل حالة المشاهدة المحفوظة
   /// 4. تحديث State بالفيديوهات المحملة
   /// 5. في حالة الخطأ، حفظ رسالة الخطأ في State
-  Future<void> loadCourseVideos(String courseId, {String? userCode}) async {
+  Future<void> loadCourseVideos(String courseId, {String? userCode, String? adminCode}) async {
     emit(
       state.copyWith(
         courseId: courseId,
@@ -32,16 +33,18 @@ class VideosCubit extends Cubit<VideosState> {
     );
 
     try {
-      // جلب adminCode من كود المستخدم
-      String? adminCode;
-      if (userCode != null && userCode.isNotEmpty) {
-        final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
-        adminCode = codeModel?.adminCode;
+      // استخدام adminCode مباشرة إذا كان موجوداً، وإلا جلب من userCode
+      String? finalAdminCode = adminCode;
+      if (finalAdminCode == null || finalAdminCode.isEmpty) {
+        if (userCode != null && userCode.isNotEmpty) {
+          final codeModel = await InjectionContainer.adminRepo.getCodeByCode(userCode);
+          finalAdminCode = codeModel?.adminCode;
+        }
       }
       
       // جلب الفيديوهات من Firestore عبر AdminRepository مع تصفية حسب adminCode
       final videoModels = await InjectionContainer.adminRepo
-          .getVideosByCourseId(courseId, adminCode: adminCode);
+          .getVideosByCourseId(courseId, adminCode: finalAdminCode);
 
       // جلب الفيديوهات المشاهدة المحفوظة (إن وجد كود)
       Set<String> watchedVideos = {};

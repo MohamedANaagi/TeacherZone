@@ -7,6 +7,7 @@ import '../../../../../core/router/app_routers.dart';
 import '../../../courses/presentation/cubit/courses_cubit.dart';
 import '../../../courses/presentation/cubit/courses_state.dart';
 import '../../../user/presentation/cubit/user_cubit.dart';
+import '../../../user/presentation/cubit/user_state.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
@@ -16,16 +17,47 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
+  bool _hasLoadedCourses = false;
+
   @override
   void initState() {
     super.initState();
     // تحميل الكورسات مع الكود عند فتح الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final userCode = context.read<UserCubit>().state.code;
-        context.read<CoursesCubit>().loadCourses(userCode: userCode);
-      }
+      _loadCoursesIfReady();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // إعادة تحميل الكورسات عند تغيير dependencies (مثل reload في الويب)
+    if (!_hasLoadedCourses) {
+      _loadCoursesIfReady();
+    }
+  }
+
+  void _loadCoursesIfReady() {
+    if (!mounted || _hasLoadedCourses) return;
+    
+    final userState = context.read<UserCubit>().state;
+    final code = userState.code;
+    final adminCode = userState.adminCode;
+    
+    // التأكد من أن البيانات محملة (إما code أو adminCode موجود)
+    if (code != null || adminCode != null) {
+      debugPrint('📚 تحميل الكورسات - code: $code, adminCode: $adminCode');
+      context.read<CoursesCubit>().loadCourses(userCode: code, adminCode: adminCode);
+      _hasLoadedCourses = true;
+    } else {
+      debugPrint('⏳ انتظار تحميل بيانات المستخدم...');
+      // إعادة المحاولة بعد قليل
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_hasLoadedCourses) {
+          _loadCoursesIfReady();
+        }
+      });
+    }
   }
 
   @override
@@ -33,8 +65,18 @@ class _CoursesScreenState extends State<CoursesScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundLight,
       body: SafeArea(
-        child: BlocBuilder<CoursesCubit, CoursesState>(
-          builder: (context, state) {
+        child: BlocListener<UserCubit, UserState>(
+          listener: (context, userState) {
+            // عند تغيير بيانات المستخدم، إعادة تحميل الكورسات
+            final code = userState.code;
+            final adminCode = userState.adminCode;
+            if (code != null || adminCode != null) {
+              _hasLoadedCourses = false;
+              _loadCoursesIfReady();
+            }
+          },
+          child: BlocBuilder<CoursesCubit, CoursesState>(
+            builder: (context, state) {
             if (state.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -59,9 +101,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
-                        final userCode = context.read<UserCubit>().state.code;
+                        final userState = context.read<UserCubit>().state;
+                        final userCode = userState.code;
+                        final adminCode = userState.adminCode;
                         context.read<CoursesCubit>().loadCourses(
                           userCode: userCode,
+                          adminCode: adminCode,
                         );
                       },
                       child: const Text('إعادة المحاولة'),
@@ -86,6 +131,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
               },
             );
           },
+          ),
         ),
       ),
     );

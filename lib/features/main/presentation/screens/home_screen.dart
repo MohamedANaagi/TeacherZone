@@ -24,24 +24,63 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _hasLoadedData = false;
+
   @override
   void initState() {
     super.initState();
     // تحميل الكورسات والاختبارات عند فتح الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final userCode = context.read<UserCubit>().state.code;
-        context.read<CoursesCubit>().loadCourses(userCode: userCode);
-        context.read<ExamsCubit>().loadExams();
-      }
+      _loadDataIfReady();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // إعادة تحميل البيانات عند تغيير dependencies (مثل reload في الويب)
+    if (!_hasLoadedData) {
+      _loadDataIfReady();
+    }
+  }
+
+  void _loadDataIfReady() {
+    if (!mounted || _hasLoadedData) return;
+    
+    final userState = context.read<UserCubit>().state;
+    final code = userState.code;
+    final adminCode = userState.adminCode;
+    
+    // التأكد من أن البيانات محملة (إما code أو adminCode موجود)
+    if (code != null || adminCode != null) {
+      debugPrint('🏠 تحميل البيانات - code: $code, adminCode: $adminCode');
+      context.read<CoursesCubit>().loadCourses(userCode: code, adminCode: adminCode);
+      context.read<ExamsCubit>().loadExams();
+      _hasLoadedData = true;
+    } else {
+      debugPrint('⏳ انتظار تحميل بيانات المستخدم...');
+      // إعادة المحاولة بعد قليل
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_hasLoadedData) {
+          _loadDataIfReady();
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: SafeArea(
-        child: SingleChildScrollView(
+    return BlocListener<UserCubit, UserState>(
+      listener: (context, userState) {
+        // عند تغيير بيانات المستخدم، إعادة تحميل البيانات
+        if (userState.code != null || userState.adminCode != null) {
+          _hasLoadedData = false;
+          _loadDataIfReady();
+        }
+      },
+      child: RepaintBoundary(
+        child: SafeArea(
+          child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -62,6 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // قسم الميزات
               _buildFeaturesSection(),
             ],
+          ),
           ),
         ),
       ),
