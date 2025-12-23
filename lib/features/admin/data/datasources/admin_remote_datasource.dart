@@ -3,12 +3,14 @@ import '../../../../core/errors/exceptions.dart';
 import '../models/code_model.dart';
 import '../models/course_model.dart';
 import '../models/video_model.dart';
+import '../models/admin_code_model.dart';
 
 abstract class AdminRemoteDataSource {
   // Admin Codes
   Future<String?> getAdminCodeByUserCode(String userCode);
   Future<bool> validateAdminCode(String adminCode);
   Future<String?> getAdminCodeByCode(String code); // جلب adminCode مباشرة من adminCodes collection
+  Future<AdminCodeModel?> getAdminCodeModelByCode(String code); // جلب AdminCodeModel بالكامل (يشمل الاسم)
 
   // Codes
   Future<void> addCode(CodeModel code);
@@ -114,6 +116,30 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       return adminCodeData['adminCode'] as String?;
     } catch (e) {
       throw ServerException('فشل جلب كود الأدمن: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<AdminCodeModel?> getAdminCodeModelByCode(String code) async {
+    try {
+      // البحث مباشرة في collection adminCodes
+      final snapshot = await firestore
+          .collection('adminCodes')
+          .where('adminCode', isEqualTo: code.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      final adminCodeDoc = snapshot.docs.first;
+      return AdminCodeModel.fromFirestore(
+        adminCodeDoc.id,
+        adminCodeDoc.data() as Map<String, dynamic>,
+      );
+    } catch (e) {
+      throw ServerException('فشل جلب بيانات الأدمن: ${e.toString()}');
     }
   }
 

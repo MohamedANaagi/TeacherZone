@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../core/styling/app_color.dart';
@@ -116,6 +117,23 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     setState(() {
       _refreshKey++; // تحديث key لإعادة بناء FutureBuilder
       _codesFuture = newFuture;
+    });
+  }
+
+  /// توليد كود عشوائي
+  /// يقوم بإنشاء كود عشوائي مكون من 8 أحرف وأرقام
+  void _generateRandomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    final code = String.fromCharCodes(
+      Iterable.generate(
+        8,
+        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+      ),
+    );
+    
+    setState(() {
+      _codeController.text = code;
     });
   }
 
@@ -382,19 +400,60 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // حقل الكود
-                      CustomTextField(
-                        controller: _codeController,
-                        hintText: 'أدخل الكود',
-                        icon: Icons.vpn_key,
-                        textAlign: TextAlign.right,
-                        textDirection: TextDirection.rtl,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'الرجاء إدخال الكود';
-                          }
-                          return null;
-                        },
+                      // حقل الكود مع زر توليد كود عشوائي
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomTextField(
+                              controller: _codeController,
+                              hintText: 'أدخل الكود أو اضغط على زر التوليد',
+                              icon: Icons.vpn_key,
+                              textAlign: TextAlign.right,
+                              textDirection: TextDirection.rtl,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'الرجاء إدخال الكود';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: AppColors.primaryColor.withOpacity(0.1),
+                            ),
+                            child: IconButton(
+                              onPressed: _generateRandomCode,
+                              icon: const Icon(Icons.autorenew),
+                              color: AppColors.primaryColor,
+                              tooltip: 'توليد كود عشوائي',
+                              iconSize: 24,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // نص توضيحي
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'يمكنك إدخال الكود يدوياً أو الضغط على زر التوليد لإنشاء كود عشوائي',
+                              style: AppStyles.textSecondaryStyle.copyWith(
+                                fontSize: 12,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
                       // حقل الاسم
@@ -726,6 +785,22 @@ class _EditCodeDialogState extends State<_EditCodeDialog> {
   bool isUpdating = false;
   bool isDialogOpen = true;
 
+  /// توليد كود عشوائي في نافذة التعديل
+  void _generateRandomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    final code = String.fromCharCodes(
+      Iterable.generate(
+        8,
+        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+      ),
+    );
+    
+    setState(() {
+      editCodeController.text = code;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -775,19 +850,39 @@ class _EditCodeDialogState extends State<_EditCodeDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // حقل الكود
-              CustomTextField(
-                controller: editCodeController,
-                hintText: 'الكود',
-                icon: Icons.vpn_key,
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'الرجاء إدخال الكود';
-                  }
-                  return null;
-                },
+              // حقل الكود مع زر توليد كود عشوائي
+              Row(
+                children: [
+                  Expanded(
+                    child: CustomTextField(
+                      controller: editCodeController,
+                      hintText: 'الكود',
+                      icon: Icons.vpn_key,
+                      textAlign: TextAlign.right,
+                      textDirection: TextDirection.rtl,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'الرجاء إدخال الكود';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.primaryColor.withOpacity(0.1),
+                    ),
+                    child: IconButton(
+                      onPressed: _generateRandomCode,
+                      icon: const Icon(Icons.autorenew),
+                      color: AppColors.primaryColor,
+                      tooltip: 'توليد كود عشوائي',
+                      iconSize: 24,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               // حقل الاسم

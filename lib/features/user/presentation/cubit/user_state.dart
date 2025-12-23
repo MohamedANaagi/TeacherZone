@@ -6,6 +6,7 @@ class UserState extends Equatable {
   final String? imagePath; // رابط الصورة من Firebase Storage (URL)
   final String? code; // كود المستخدم
   final String? adminCode; // كود الأدمن المرتبط بهذا المستخدم
+  final String? adminName; // اسم الأدمن
   final DateTime? subscriptionEndDate;
   final bool isLoggedIn;
 
@@ -15,6 +16,7 @@ class UserState extends Equatable {
     this.imagePath,
     this.code,
     this.adminCode,
+    this.adminName,
     this.subscriptionEndDate,
     this.isLoggedIn = false,
   });
@@ -34,6 +36,7 @@ class UserState extends Equatable {
     String? imagePath,
     String? code,
     String? adminCode,
+    String? adminName,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
     bool? clearName,
@@ -41,6 +44,7 @@ class UserState extends Equatable {
     bool? clearImagePath,
     bool? clearCode,
     bool? clearAdminCode,
+    bool? clearAdminName,
     bool? clearSubscriptionEndDate,
   }) {
     return UserState(
@@ -49,6 +53,7 @@ class UserState extends Equatable {
       imagePath: clearImagePath == true ? null : (imagePath ?? this.imagePath),
       code: clearCode == true ? null : (code ?? this.code),
       adminCode: clearAdminCode == true ? null : (adminCode ?? this.adminCode),
+      adminName: clearAdminName == true ? null : (adminName ?? this.adminName),
       subscriptionEndDate: clearSubscriptionEndDate == true
           ? null
           : (subscriptionEndDate ?? this.subscriptionEndDate),
@@ -63,6 +68,7 @@ class UserState extends Equatable {
     imagePath,
     code,
     adminCode,
+    adminName,
     subscriptionEndDate,
     isLoggedIn,
   ];

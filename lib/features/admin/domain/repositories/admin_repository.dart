@@ -1,12 +1,14 @@
 import '../../data/models/code_model.dart';
 import '../../data/models/course_model.dart';
 import '../../data/models/video_model.dart';
+import '../../data/models/admin_code_model.dart';
 
 abstract class AdminRepository {
   // Admin Codes
   Future<String?> getAdminCodeByUserCode(String userCode);
   Future<bool> validateAdminCode(String adminCode);
   Future<String?> getAdminCodeByCode(String code); // جلب adminCode مباشرة من adminCodes collection
+  Future<AdminCodeModel?> getAdminCodeModelByCode(String code); // جلب AdminCodeModel بالكامل (يشمل الاسم)
 
   // Codes
   Future<void> addCode(CodeModel code);

@@ -465,10 +465,9 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
     }
 
     try {
-      // البحث مباشرة في collection adminCodes
-      final adminCode = await InjectionContainer.adminRepo.getAdminCodeByCode(
-        enteredCode,
-      );
+      // البحث مباشرة في collection adminCodes لجلب AdminCodeModel بالكامل
+      final adminCodeModel = await InjectionContainer.adminRepo
+          .getAdminCodeModelByCode(enteredCode);
 
       // إغلاق loading dialog
       if (mounted && loadingDialogShown) {
@@ -479,7 +478,7 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
         }
       }
 
-      if (adminCode == null || adminCode.isEmpty) {
+      if (adminCodeModel == null) {
         if (mounted) {
           try {
             Navigator.of(context).pop(); // إغلاق dialog كود الأدمن
@@ -491,13 +490,17 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
         return;
       }
 
-      // حفظ adminCode في UserCubit
+      // حفظ adminCode و adminName في UserCubit
       if (mounted) {
         try {
           final userCubit = context.read<UserCubit>();
-          await userCubit.updateUser(adminCode: adminCode, isLoggedIn: true);
+          await userCubit.updateUser(
+            adminCode: adminCodeModel.adminCode,
+            adminName: adminCodeModel.name,
+            isLoggedIn: true,
+          );
         } catch (e) {
-          debugPrint('خطأ في حفظ adminCode: $e');
+          debugPrint('خطأ في حفظ بيانات الأدمن: $e');
           if (mounted) {
             try {
               Navigator.of(context).pop(); // إغلاق dialog كود الأدمن

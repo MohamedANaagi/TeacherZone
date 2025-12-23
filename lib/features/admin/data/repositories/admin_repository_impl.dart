@@ -3,6 +3,7 @@ import '../datasources/admin_remote_datasource.dart';
 import '../models/code_model.dart';
 import '../models/course_model.dart';
 import '../models/video_model.dart';
+import '../models/admin_code_model.dart';
 import '../../domain/repositories/admin_repository.dart';
 
 class AdminRepositoryImpl implements AdminRepository {
@@ -45,6 +46,18 @@ class AdminRepositoryImpl implements AdminRepository {
         rethrow;
       }
       throw ServerException('حدث خطأ أثناء جلب كود الأدمن');
+    }
+  }
+
+  @override
+  Future<AdminCodeModel?> getAdminCodeModelByCode(String code) async {
+    try {
+      return await remoteDataSource.getAdminCodeModelByCode(code);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء جلب بيانات الأدمن');
     }
   }
 

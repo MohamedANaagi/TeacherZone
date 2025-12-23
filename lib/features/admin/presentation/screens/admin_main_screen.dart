@@ -1,4 +1,5 @@
 import 'package:class_code/features/user/presentation/cubit/user_cubit.dart';
+import 'package:class_code/features/user/presentation/cubit/user_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,16 @@ class AdminMainScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // بطاقة ترحيبية باسم الأدمن
+          BlocBuilder<UserCubit, UserState>(
+            builder: (context, userState) {
+              if (userState.adminName != null && userState.adminName!.isNotEmpty) {
+                return _buildWelcomeCard(context, userState.adminName!);
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          const SizedBox(height: 16),
           // بطاقة إضافة الأكواد
           _buildAdminCard(
             context: context,
@@ -66,6 +77,69 @@ class AdminMainScreen extends StatelessWidget {
           // زر تسجيل الخروج
           _buildLogoutButton(context),
         ],
+      ),
+    );
+  }
+
+  /// بناء بطاقة ترحيبية باسم الأدمن
+  Widget _buildWelcomeCard(BuildContext context, String adminName) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowColor,
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            // أيقونة ترحيبية
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: AppColors.secondaryColor.withOpacity(0.3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person,
+                color: AppColors.secondaryColor,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // النص الترحيبي
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'مرحباً',
+                    style: AppStyles.textSecondaryStyle.copyWith(
+                      color: AppColors.secondaryColor.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    adminName,
+                    style: AppStyles.subHeadingStyle.copyWith(
+                      color: AppColors.secondaryColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
