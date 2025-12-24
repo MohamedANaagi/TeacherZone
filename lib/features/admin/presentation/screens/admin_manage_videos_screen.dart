@@ -1,8 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
+// للويب فقط - استخدام HTML File API مباشرة
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -63,51 +67,182 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
   /// اختيار ملف فيديو
   /// يدعم الويب و iOS و Android
   Future<void> _pickVideoFile() async {
+    if (!mounted) return;
+    
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.video,
-        allowMultiple: false,
-        // للويب: السماح بجميع أنواع الفيديو
-        allowedExtensions: null, // null يعني جميع الأنواع
-      );
-
-      if (result != null) {
-        // للويب: استخدام bytes مباشرة
-        if (kIsWeb) {
-          if (result.files.single.bytes != null) {
-            // في الويب، نحتاج إلى حفظ الملف مؤقتاً
-            // لكن file_picker في الويب لا يعيد File مباشرة
-            // سنحتاج إلى استخدام PlatformFile
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('تم اختيار الفيديو: ${result.files.single.name}'),
-                  backgroundColor: AppColors.successColor,
-                ),
-              );
-            }
-            // في الويب، سنستخدم bytes مباشرة عند الرفع
-            setState(() {
-              _selectedVideoFile = null; // في الويب لا يوجد File
-              _uploadedVideoUrl = null;
-              // حفظ PlatformFile للاستخدام لاحقاً
-              _selectedPlatformFile = result.files.single;
-            });
+      debugPrint('🎬 بدء اختيار ملف الفيديو...');
+      
+      // للويب: استخدام HTML File API مباشرة لتجنب مشاكل file_picker
+      if (kIsWeb) {
+        debugPrint('🌐 استخدام HTML File API للويب...');
+        
+        // إنشاء input element مخفي
+        final input = html.FileUploadInputElement()
+          ..accept = 'video/*'
+          ..style.display = 'none';
+        
+        html.document.body!.append(input);
+        
+        // انتظار اختيار المستخدم للملف
+        final completer = Completer<html.File?>();
+        
+        input.onChange.listen((event) {
+          final files = input.files;
+          if (files != null && files.isNotEmpty) {
+            completer.complete(files.first);
+          } else {
+            completer.complete(null);
           }
-        } else {
-          // للـ iOS و Android: استخدام path
-          if (result.files.single.path != null) {
-            final file = File(result.files.single.path!);
-            setState(() {
-              _selectedVideoFile = file;
-              _uploadedVideoUrl = null;
-              _selectedPlatformFile = null;
-            });
+          input.remove(); // إزالة input بعد الاستخدام
+        });
+        
+        // فتح dialog اختيار الملف
+        input.click();
+        
+        // انتظار اختيار المستخدم
+        final htmlFile = await completer.future.timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            input.remove();
+            return null;
+          },
+        );
+        
+        if (!mounted) return;
+        
+        if (htmlFile == null) {
+          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+          return;
+        }
+        
+        debugPrint('📁 الملف المختار: ${htmlFile.name}');
+        debugPrint('📦 حجم الملف: ${htmlFile.size} bytes');
+        
+        // قراءة الملف باستخدام FileReader
+        final reader = html.FileReader();
+        final bytesCompleter = Completer<Uint8List>();
+        
+        // استخدام onLoad بدلاً من onLoadEnd لتجنب مشاكل التوقيت
+        reader.onLoad.listen((_) {
+          try {
+            // قراءة ArrayBuffer وتحويله إلى Uint8List
+            final result = reader.result;
             
+            if (result == null) {
+              bytesCompleter.completeError(Exception('فشل قراءة الملف: النتيجة فارغة'));
+              return;
+            }
+            
+            Uint8List bytes;
+            
+            // في dart:html، readAsArrayBuffer يعيد ByteBuffer مباشرة
+            // لكن في release build قد يكون هناك اختلاف
+            try {
+              // محاولة قراءة كـ ByteBuffer (الطريقة الأساسية)
+              if (result is ByteBuffer) {
+                bytes = result.asUint8List();
+                debugPrint('✅ تم قراءة الملف كـ ByteBuffer (${bytes.length} bytes)');
+              } else {
+                // محاولة تحويل مباشرة
+                final buffer = result as ByteBuffer;
+                bytes = buffer.asUint8List();
+                debugPrint('✅ تم قراءة الملف بعد التحويل (${bytes.length} bytes)');
+              }
+            } catch (e) {
+              // إذا فشل، جرب طرق أخرى
+              debugPrint('⚠️ محاولة طريقة بديلة لقراءة الملف...');
+              debugPrint('   نوع النتيجة: ${result.runtimeType}');
+              
+              if (result is TypedData) {
+                bytes = Uint8List.view(result.buffer);
+                debugPrint('✅ تم قراءة الملف كـ TypedData (${bytes.length} bytes)');
+              } else if (result is List) {
+                bytes = Uint8List.fromList(result.cast<int>());
+                debugPrint('✅ تم قراءة الملف كـ List (${bytes.length} bytes)');
+              } else {
+                debugPrint('❌ نوع غير معروف: ${result.runtimeType}');
+                bytesCompleter.completeError(Exception('نوع غير معروف للنتيجة: ${result.runtimeType}'));
+                return;
+              }
+            }
+            
+            bytesCompleter.complete(bytes);
+          } catch (e, stackTrace) {
+            debugPrint('❌ خطأ في قراءة الملف: $e');
+            debugPrint('📚 Stack trace: $stackTrace');
+            bytesCompleter.completeError(Exception('فشل قراءة الملف: $e'));
+          }
+        });
+        
+        reader.onError.listen((error) {
+          debugPrint('❌ خطأ في FileReader: $error');
+          bytesCompleter.completeError(Exception('خطأ في FileReader: $error'));
+        });
+        
+        // قراءة الملف كـ ArrayBuffer
+        reader.readAsArrayBuffer(htmlFile);
+        
+        final fileBytes = await bytesCompleter.future;
+        
+        debugPrint('✅ تم قراءة الملف بنجاح (${fileBytes.length} bytes)');
+        
+        // إنشاء PlatformFile مع bytes
+        final platformFile = PlatformFile(
+          name: htmlFile.name,
+          size: htmlFile.size.toInt(),
+          bytes: fileBytes,
+          path: null,
+          readStream: null,
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم اختيار الفيديو: ${htmlFile.name}'),
+              backgroundColor: AppColors.successColor,
+            ),
+          );
+          
+          setState(() {
+            _selectedVideoFile = null;
+            _uploadedVideoUrl = null;
+            _selectedPlatformFile = platformFile;
+          });
+          
+          debugPrint('✅ تم حفظ PlatformFile بنجاح');
+        }
+      } else {
+        // للـ iOS و Android: استخدام file_picker
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.video,
+          allowMultiple: false,
+          allowedExtensions: null,
+        );
+
+        if (!mounted) return;
+
+        if (result == null || result.files.isEmpty) {
+          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+          return;
+        }
+
+        final selectedFile = result.files.first;
+        
+        if (selectedFile.path != null && selectedFile.path!.isNotEmpty) {
+          debugPrint('✅ مسار الملف: ${selectedFile.path}');
+          final file = File(selectedFile.path!);
+          
+          if (await file.exists()) {
             if (mounted) {
+              setState(() {
+                _selectedVideoFile = file;
+                _uploadedVideoUrl = null;
+                _selectedPlatformFile = null;
+              });
+              
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('تم اختيار الفيديو: ${result.files.single.name}'),
+                  content: Text('تم اختيار الفيديو: ${selectedFile.name}'),
                   backgroundColor: AppColors.successColor,
                 ),
               );
@@ -115,12 +250,30 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ خطأ في اختيار الفيديو: $e');
+      debugPrint('📚 Stack trace: $stackTrace');
+      
       if (mounted) {
+        // استخراج رسالة خطأ واضحة
+        String errorMessage = 'حدث خطأ في اختيار الفيديو';
+        final errorString = e.toString();
+        
+        if (errorString.contains('LateInitializationError')) {
+          errorMessage = 'خطأ في تهيئة الملف. يرجى المحاولة مرة أخرى.';
+        } else if (errorString.contains('Permission')) {
+          errorMessage = 'لا توجد صلاحيات للوصول إلى الملفات. يرجى التحقق من الإعدادات.';
+        } else if (errorString.contains('StateError')) {
+          errorMessage = 'خطأ في حالة الملف. يرجى المحاولة مرة أخرى.';
+        } else {
+          errorMessage = 'حدث خطأ: ${errorString.length > 100 ? errorString.substring(0, 100) + "..." : errorString}';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ في اختيار الفيديو: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.errorColor,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -240,12 +393,35 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
         
         // رفع الفيديو حسب المنصة
         if (kIsWeb) {
-          // للويب: استخدام bytes
-          if (_selectedPlatformFile?.bytes == null) {
-            throw Exception('لم يتم اختيار ملف فيديو');
+          // للويب: استخدام bytes أو قراءة من stream
+          Uint8List? videoBytes;
+          
+          if (_selectedPlatformFile?.bytes != null && _selectedPlatformFile!.bytes!.isNotEmpty) {
+            // استخدام bytes مباشرة
+            videoBytes = _selectedPlatformFile!.bytes;
+            debugPrint('✅ استخدام bytes مباشرة (${videoBytes?.length ?? 0} bytes)');
+          } else if (_selectedPlatformFile?.readStream != null) {
+            // قراءة من stream
+            debugPrint('📡 قراءة الملف من stream عند الرفع...');
+            final chunks = <List<int>>[];
+            await for (final chunk in _selectedPlatformFile!.readStream!) {
+              chunks.add(chunk);
+            }
+            // دمج جميع الـ chunks
+            final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+            videoBytes = Uint8List(totalLength);
+            int offset = 0;
+            for (final chunk in chunks) {
+              videoBytes.setRange(offset, offset + chunk.length, chunk);
+              offset += chunk.length;
+            }
+            debugPrint('✅ تم قراءة الملف من stream (${videoBytes.length} bytes)');
+          } else {
+            throw Exception('لم يتم اختيار ملف فيديو أو الملف غير قابل للقراءة');
           }
+          
           videoUrl = await BunnyStorageService.uploadVideo(
-            videoBytes: _selectedPlatformFile!.bytes!,
+            videoBytes: videoBytes!,
             fileName: fileName,
           );
         } else {
@@ -316,10 +492,25 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
       }
     } catch (e) {
       if (mounted) {
+        // استخراج رسالة خطأ واضحة
+        String errorMessage = 'حدث خطأ أثناء رفع الفيديو';
+        final errorString = e.toString();
+        
+        if (errorString.contains('انتهت مهلة')) {
+          errorMessage = 'انتهت مهلة رفع الفيديو. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.';
+        } else if (errorString.contains('الاتصال')) {
+          errorMessage = 'فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+        } else if (errorString.contains('CORS') || errorString.contains('cors')) {
+          errorMessage = 'خطأ في الاتصال. يرجى التحقق من إعدادات الخادم والمحاولة مرة أخرى.';
+        } else {
+          errorMessage = 'حدث خطأ: ${e.toString()}';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.errorColor,
+            duration: const Duration(seconds: 5),
           ),
         );
       }

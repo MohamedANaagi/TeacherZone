@@ -1,7 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+// للويب فقط - استخدام HTML File API مباشرة
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -33,7 +37,7 @@ class _AdminManageQuestionsScreenState
   int _correctAnswerIndex = 0;
   bool _isLoading = false;
   Future<List<QuestionModel>>? _questionsFuture;
-  
+
   // للصور
   File? _selectedImageFile; // ملف الصورة المختار (لـ iOS و Android)
   PlatformFile? _selectedPlatformFile; // PlatformFile للويب
@@ -57,8 +61,9 @@ class _AdminManageQuestionsScreenState
 
   Future<List<QuestionModel>> _loadQuestions() async {
     try {
-      final questions = await InjectionContainer.testRepo
-          .getQuestionsByTestId(widget.test.id);
+      final questions = await InjectionContainer.testRepo.getQuestionsByTestId(
+        widget.test.id,
+      );
       return questions.cast<QuestionModel>();
     } catch (e) {
       if (mounted) {
@@ -102,32 +107,169 @@ class _AdminManageQuestionsScreenState
 
   /// اختيار صورة للسؤال
   Future<void> _pickImage() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
+    if (!mounted) return;
 
-      if (result != null) {
-        if (kIsWeb) {
-          if (result.files.single.bytes != null) {
-            if (mounted) {
-              setState(() {
-                _selectedImageFile = null;
-                _selectedPlatformFile = result.files.single;
-                _uploadedImageUrl = null;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('تم اختيار الصورة: ${result.files.single.name}'),
-                  backgroundColor: AppColors.successColor,
-                ),
-              );
-            }
+    try {
+      debugPrint('🖼️ بدء اختيار صورة...');
+
+      // للويب: استخدام HTML File API مباشرة لتجنب مشاكل file_picker
+      if (kIsWeb) {
+        debugPrint('🌐 استخدام HTML File API للويب...');
+        
+        // إنشاء input element مخفي
+        final input = html.FileUploadInputElement()
+          ..accept = 'image/*'
+          ..style.display = 'none';
+        
+        html.document.body!.append(input);
+        
+        // انتظار اختيار المستخدم للملف
+        final completer = Completer<html.File?>();
+        
+        input.onChange.listen((event) {
+          final files = input.files;
+          if (files != null && files.isNotEmpty) {
+            completer.complete(files.first);
+          } else {
+            completer.complete(null);
           }
-        } else {
-          if (result.files.single.path != null) {
-            final file = File(result.files.single.path!);
+          input.remove(); // إزالة input بعد الاستخدام
+        });
+        
+        // فتح dialog اختيار الملف
+        input.click();
+        
+        // انتظار اختيار المستخدم
+        final htmlFile = await completer.future.timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            input.remove();
+            return null;
+          },
+        );
+        
+        if (!mounted) return;
+        
+        if (htmlFile == null) {
+          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+          return;
+        }
+        
+        debugPrint('📁 الملف المختار: ${htmlFile.name}');
+        debugPrint('📦 حجم الملف: ${htmlFile.size} bytes');
+        
+        // قراءة الملف باستخدام FileReader
+        final reader = html.FileReader();
+        final bytesCompleter = Completer<Uint8List>();
+        
+        // استخدام onLoad بدلاً من onLoadEnd لتجنب مشاكل التوقيت
+        reader.onLoad.listen((_) {
+          try {
+            // قراءة ArrayBuffer وتحويله إلى Uint8List
+            final result = reader.result;
+            
+            if (result == null) {
+              bytesCompleter.completeError(Exception('فشل قراءة الملف: النتيجة فارغة'));
+              return;
+            }
+            
+            Uint8List bytes;
+            
+            // في dart:html، readAsArrayBuffer يعيد ByteBuffer مباشرة
+            // لكن في release build قد يكون هناك اختلاف
+            try {
+              // محاولة قراءة كـ ByteBuffer (الطريقة الأساسية)
+              if (result is ByteBuffer) {
+                bytes = result.asUint8List();
+                debugPrint('✅ تم قراءة الملف كـ ByteBuffer (${bytes.length} bytes)');
+              } else {
+                // محاولة تحويل مباشرة
+                final buffer = result as ByteBuffer;
+                bytes = buffer.asUint8List();
+                debugPrint('✅ تم قراءة الملف بعد التحويل (${bytes.length} bytes)');
+              }
+            } catch (e) {
+              // إذا فشل، جرب طرق أخرى
+              debugPrint('⚠️ محاولة طريقة بديلة لقراءة الملف...');
+              debugPrint('   نوع النتيجة: ${result.runtimeType}');
+              
+              if (result is TypedData) {
+                bytes = Uint8List.view(result.buffer);
+                debugPrint('✅ تم قراءة الملف كـ TypedData (${bytes.length} bytes)');
+              } else if (result is List) {
+                bytes = Uint8List.fromList(result.cast<int>());
+                debugPrint('✅ تم قراءة الملف كـ List (${bytes.length} bytes)');
+              } else {
+                debugPrint('❌ نوع غير معروف: ${result.runtimeType}');
+                bytesCompleter.completeError(Exception('نوع غير معروف للنتيجة: ${result.runtimeType}'));
+                return;
+              }
+            }
+            
+            bytesCompleter.complete(bytes);
+          } catch (e, stackTrace) {
+            debugPrint('❌ خطأ في قراءة الملف: $e');
+            debugPrint('📚 Stack trace: $stackTrace');
+            bytesCompleter.completeError(Exception('فشل قراءة الملف: $e'));
+          }
+        });
+        
+        reader.onError.listen((error) {
+          debugPrint('❌ خطأ في FileReader: $error');
+          bytesCompleter.completeError(Exception('خطأ في FileReader: $error'));
+        });
+        
+        // قراءة الملف كـ ArrayBuffer
+        reader.readAsArrayBuffer(htmlFile);
+        
+        final fileBytes = await bytesCompleter.future;
+        
+        debugPrint('✅ تم قراءة الملف بنجاح (${fileBytes.length} bytes)');
+        
+        // إنشاء PlatformFile مع bytes
+        final platformFile = PlatformFile(
+          name: htmlFile.name,
+          size: htmlFile.size.toInt(),
+          bytes: fileBytes,
+          path: null,
+          readStream: null,
+        );
+        
+        if (mounted) {
+          setState(() {
+            _selectedImageFile = null;
+            _selectedPlatformFile = platformFile;
+            _uploadedImageUrl = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم اختيار الصورة: ${htmlFile.name}'),
+              backgroundColor: AppColors.successColor,
+            ),
+          );
+          debugPrint('✅ تم حفظ PlatformFile بنجاح');
+        }
+      } else {
+        // للـ iOS و Android: استخدام file_picker
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
+
+        if (!mounted) return;
+
+        if (result == null || result.files.isEmpty) {
+          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+          return;
+        }
+
+        final selectedFile = result.files.first;
+        
+        if (selectedFile.path != null && selectedFile.path!.isNotEmpty) {
+          debugPrint('✅ مسار الملف: ${selectedFile.path}');
+          final file = File(selectedFile.path!);
+          
+          if (await file.exists()) {
             if (mounted) {
               setState(() {
                 _selectedImageFile = file;
@@ -136,7 +278,7 @@ class _AdminManageQuestionsScreenState
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('تم اختيار الصورة: ${result.files.single.name}'),
+                  content: Text('تم اختيار الصورة: ${selectedFile.name}'),
                   backgroundColor: AppColors.successColor,
                 ),
               );
@@ -144,12 +286,32 @@ class _AdminManageQuestionsScreenState
           }
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ خطأ في اختيار الصورة: $e');
+      debugPrint('📚 Stack trace: $stackTrace');
+
       if (mounted) {
+        // استخراج رسالة خطأ واضحة
+        String errorMessage = 'فشل اختيار الصورة';
+        final errorString = e.toString();
+
+        if (errorString.contains('LateInitializationError')) {
+          errorMessage = 'خطأ في تهيئة الملف. يرجى المحاولة مرة أخرى.';
+        } else if (errorString.contains('Permission')) {
+          errorMessage =
+              'لا توجد صلاحيات للوصول إلى الملفات. يرجى التحقق من الإعدادات.';
+        } else if (errorString.contains('StateError')) {
+          errorMessage = 'خطأ في حالة الملف. يرجى المحاولة مرة أخرى.';
+        } else {
+          errorMessage =
+              'فشل اختيار الصورة: ${errorString.length > 100 ? errorString.substring(0, 100) + "..." : errorString}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل اختيار الصورة: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.errorColor,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -169,10 +331,11 @@ class _AdminManageQuestionsScreenState
       String? imageUrl;
 
       if (kIsWeb) {
-        if (_selectedPlatformFile == null || _selectedPlatformFile!.bytes == null) {
+        if (_selectedPlatformFile == null ||
+            _selectedPlatformFile!.bytes == null) {
           throw Exception('لم يتم اختيار صورة');
         }
-        
+
         // إنشاء اسم ملف فريد
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final extension = _selectedPlatformFile!.extension ?? 'jpg';
@@ -211,10 +374,30 @@ class _AdminManageQuestionsScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingImage = false);
+
+        // استخراج رسالة خطأ واضحة
+        String errorMessage = 'فشل رفع الصورة';
+        final errorString = e.toString();
+
+        if (errorString.contains('انتهت مهلة')) {
+          errorMessage =
+              'انتهت مهلة رفع الصورة. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.';
+        } else if (errorString.contains('الاتصال')) {
+          errorMessage =
+              'فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+        } else if (errorString.contains('CORS') ||
+            errorString.contains('cors')) {
+          errorMessage =
+              'خطأ في الاتصال. يرجى التحقق من إعدادات الخادم والمحاولة مرة أخرى.';
+        } else {
+          errorMessage = 'فشل رفع الصورة: ${e.toString()}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('فشل رفع الصورة: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.errorColor,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -234,8 +417,10 @@ class _AdminManageQuestionsScreenState
 
   Future<void> _addQuestion() async {
     // التحقق من وجود نص السؤال أو صورة
-    if ((_questionTextController.text.trim().isEmpty) && 
-        (_selectedImageFile == null && _selectedPlatformFile == null && _uploadedImageUrl == null)) {
+    if ((_questionTextController.text.trim().isEmpty) &&
+        (_selectedImageFile == null &&
+            _selectedPlatformFile == null &&
+            _uploadedImageUrl == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء إدخال نص السؤال أو رفع صورة'),
@@ -266,7 +451,8 @@ class _AdminManageQuestionsScreenState
     try {
       // رفع الصورة إذا كانت موجودة
       String? imageUrl = _uploadedImageUrl;
-      if (imageUrl == null && (_selectedImageFile != null || _selectedPlatformFile != null)) {
+      if (imageUrl == null &&
+          (_selectedImageFile != null || _selectedPlatformFile != null)) {
         imageUrl = await _uploadImageToBunny();
       }
 
@@ -312,10 +498,24 @@ class _AdminManageQuestionsScreenState
       }
     } catch (e) {
       if (mounted) {
+        // استخراج رسالة خطأ واضحة
+        String errorMessage = 'حدث خطأ أثناء إضافة السؤال';
+        final errorString = e.toString();
+
+        if (errorString.contains('انتهت مهلة')) {
+          errorMessage = 'انتهت مهلة العملية. يرجى المحاولة مرة أخرى.';
+        } else if (errorString.contains('الاتصال')) {
+          errorMessage =
+              'فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.';
+        } else {
+          errorMessage = 'حدث خطأ: ${e.toString()}';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.errorColor,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -424,14 +624,18 @@ class _AdminManageQuestionsScreenState
                             ],
                           ),
                           const SizedBox(height: 12),
-                          if (_uploadedImageUrl != null || _selectedImageFile != null || _selectedPlatformFile != null) ...[
+                          if (_uploadedImageUrl != null ||
+                              _selectedImageFile != null ||
+                              _selectedPlatformFile != null) ...[
                             // عرض الصورة المختارة
                             Container(
                               height: 200,
                               width: double.infinity,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.borderColor),
+                                border: Border.all(
+                                  color: AppColors.borderColor,
+                                ),
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
@@ -441,21 +645,25 @@ class _AdminManageQuestionsScreenState
                                         fit: BoxFit.contain,
                                       )
                                     : _selectedImageFile != null
-                                        ? Image.file(
-                                            _selectedImageFile!,
-                                            fit: BoxFit.contain,
-                                          )
-                                        : _uploadedImageUrl != null
-                                            ? Image.network(
-                                                _uploadedImageUrl!,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return const Center(
-                                                    child: Icon(Icons.broken_image, size: 50),
-                                                  );
-                                                },
-                                              )
-                                            : const SizedBox.shrink(),
+                                    ? Image.file(
+                                        _selectedImageFile!,
+                                        fit: BoxFit.contain,
+                                      )
+                                    : _uploadedImageUrl != null
+                                    ? Image.network(
+                                        _uploadedImageUrl!,
+                                        fit: BoxFit.contain,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return const Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  size: 50,
+                                                ),
+                                              );
+                                            },
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -468,7 +676,9 @@ class _AdminManageQuestionsScreenState
                                     label: const Text('إزالة الصورة'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppColors.errorColor,
-                                      side: BorderSide(color: AppColors.errorColor),
+                                      side: BorderSide(
+                                        color: AppColors.errorColor,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -479,19 +689,31 @@ class _AdminManageQuestionsScreenState
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: _isUploadingImage ? null : _pickImage,
+                                onPressed: _isUploadingImage
+                                    ? null
+                                    : _pickImage,
                                 icon: _isUploadingImage
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
                                       )
                                     : const Icon(Icons.upload_file),
-                                label: Text(_isUploadingImage ? 'جاري الرفع...' : 'اختيار صورة'),
+                                label: Text(
+                                  _isUploadingImage
+                                      ? 'جاري الرفع...'
+                                      : 'اختيار صورة',
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primaryColor,
-                                  side: BorderSide(color: AppColors.primaryColor),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  side: BorderSide(
+                                    color: AppColors.primaryColor,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -718,7 +940,9 @@ class _AdminManageQuestionsScreenState
                                                     ),
                                               ),
                                               const SizedBox(height: 8),
-                                              if (question.questionText.isNotEmpty)
+                                              if (question
+                                                  .questionText
+                                                  .isNotEmpty)
                                                 Text(
                                                   question.questionText,
                                                   style: AppStyles
@@ -729,25 +953,46 @@ class _AdminManageQuestionsScreenState
                                                             FontWeight.bold,
                                                       ),
                                                 ),
-                                              if (question.imageUrl != null && question.imageUrl!.isNotEmpty) ...[
+                                              if (question.imageUrl != null &&
+                                                  question
+                                                      .imageUrl!
+                                                      .isNotEmpty) ...[
                                                 const SizedBox(height: 12),
                                                 Container(
                                                   height: 200,
                                                   width: double.infinity,
                                                   decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    border: Border.all(color: AppColors.borderColor),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color:
+                                                          AppColors.borderColor,
+                                                    ),
                                                   ),
                                                   child: ClipRRect(
-                                                    borderRadius: BorderRadius.circular(12),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
                                                     child: Image.network(
                                                       question.imageUrl!,
                                                       fit: BoxFit.contain,
-                                                      errorBuilder: (context, error, stackTrace) {
-                                                        return const Center(
-                                                          child: Icon(Icons.broken_image, size: 50),
-                                                        );
-                                                      },
+                                                      errorBuilder:
+                                                          (
+                                                            context,
+                                                            error,
+                                                            stackTrace,
+                                                          ) {
+                                                            return const Center(
+                                                              child: Icon(
+                                                                Icons
+                                                                    .broken_image,
+                                                                size: 50,
+                                                              ),
+                                                            );
+                                                          },
                                                     ),
                                                   ),
                                                 ),
@@ -758,49 +1003,49 @@ class _AdminManageQuestionsScreenState
                                                 (optionIndex) => Padding(
                                                   padding:
                                                       const EdgeInsets.only(
-                                                          bottom: 8),
+                                                        bottom: 8,
+                                                      ),
                                                   child: Row(
                                                     children: [
                                                       Icon(
                                                         optionIndex ==
                                                                 question
                                                                     .correctAnswerIndex
-                                                            ? Icons
-                                                                .check_circle
+                                                            ? Icons.check_circle
                                                             : Icons
-                                                                .radio_button_unchecked,
+                                                                  .radio_button_unchecked,
                                                         size: 20,
-                                                        color: optionIndex ==
+                                                        color:
+                                                            optionIndex ==
                                                                 question
                                                                     .correctAnswerIndex
                                                             ? AppColors
-                                                                .successColor
+                                                                  .successColor
                                                             : AppColors
-                                                                .textSecondary,
+                                                                  .textSecondary,
                                                       ),
                                                       const SizedBox(width: 8),
                                                       Expanded(
                                                         child: Text(
-                                                          question.options[
-                                                              optionIndex],
-                                                          style: AppStyles
-                                                              .textPrimaryStyle
-                                                              .copyWith(
+                                                          question
+                                                              .options[optionIndex],
+                                                          style: AppStyles.textPrimaryStyle.copyWith(
                                                             fontWeight:
                                                                 optionIndex ==
-                                                                        question
-                                                                            .correctAnswerIndex
-                                                                    ? FontWeight
-                                                                        .bold
-                                                                    : FontWeight
-                                                                        .normal,
-                                                            color: optionIndex ==
+                                                                    question
+                                                                        .correctAnswerIndex
+                                                                ? FontWeight
+                                                                      .bold
+                                                                : FontWeight
+                                                                      .normal,
+                                                            color:
+                                                                optionIndex ==
                                                                     question
                                                                         .correctAnswerIndex
                                                                 ? AppColors
-                                                                    .successColor
+                                                                      .successColor
                                                                 : AppColors
-                                                                    .textPrimary,
+                                                                      .textPrimary,
                                                           ),
                                                         ),
                                                       ),
@@ -836,4 +1081,3 @@ class _AdminManageQuestionsScreenState
     );
   }
 }
-

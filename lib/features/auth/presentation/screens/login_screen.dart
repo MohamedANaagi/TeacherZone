@@ -593,7 +593,7 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
             vertical: 16,
           ),
         ),
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.text,
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
         style: AppStyles.subTextStyle.copyWith(

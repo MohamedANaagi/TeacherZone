@@ -5,6 +5,11 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 
+/// Timeout للطلبات HTTP (بالثواني)
+/// للويب: نستخدم timeout أطول لأن الملفات قد تكون كبيرة
+const Duration _httpTimeout = Duration(minutes: 10);
+const Duration _httpConnectTimeout = Duration(seconds: 30);
+
 /// Service للتعامل مع Bunny Storage و Bunny Stream
 /// الصور ترفع على Bunny Storage
 /// الفيديوهات ترفع على Bunny Stream
@@ -62,41 +67,63 @@ class BunnyStorageService {
         fileBytes = await videoFile.readAsBytes();
       }
 
-      debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream: $fileName');
-      debugPrint(
-        '📦 حجم الملف: ${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB',
-      );
+      if (kDebugMode) {
+        debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream');
+        debugPrint(
+          '📦 حجم الملف: ${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB',
+        );
+      }
 
       // الخطوة 1: إنشاء فيديو جديد في Bunny Stream
       // استخدام libraryId كرقم في الـ URL
       final createVideoUrl = '$_streamBaseUrl/library/$_streamLibraryId/videos';
-      debugPrint('🔗 Create Video URL: $createVideoUrl');
-      debugPrint('🔑 Library ID: $_streamLibraryId');
+      if (kDebugMode) {
+        debugPrint('🔗 Create Video URL: $createVideoUrl');
+        // لا نطبع Library ID في production
+      }
 
-      final createResponse = await http.post(
-        Uri.parse(createVideoUrl),
-        headers: {
-          'AccessKey': _streamApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'title': path.basenameWithoutExtension(fileName)}),
-      );
+      final createResponse = await http
+          .post(
+            Uri.parse(createVideoUrl),
+            headers: {
+              'AccessKey': _streamApiKey,
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'title': path.basenameWithoutExtension(fileName),
+            }),
+          )
+          .timeout(
+            _httpConnectTimeout,
+            onTimeout: () {
+              throw Exception(
+                'انتهت مهلة الاتصال. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.',
+              );
+            },
+          );
 
-      debugPrint('📤 Create Response Status: ${createResponse.statusCode}');
-      debugPrint('📤 Create Response Body: ${createResponse.body}');
+      if (kDebugMode) {
+        debugPrint('📤 Create Response Status: ${createResponse.statusCode}');
+        // لا نطبع Response Body في production لأنه قد يحتوي على معلومات حساسة
+        debugPrint('📤 Create Response: Success');
+      }
 
       if (createResponse.statusCode != 200) {
         debugPrint(
           '❌ فشل إنشاء فيديو في Bunny Stream: ${createResponse.statusCode}',
         );
-        debugPrint('Response: ${createResponse.body}');
+        if (kDebugMode) {
+          debugPrint('Response: ${createResponse.body}');
+        }
         throw Exception(
           'فشل إنشاء فيديو: ${createResponse.statusCode} - ${createResponse.body}',
         );
       }
 
       final videoData = jsonDecode(createResponse.body) as Map<String, dynamic>;
-      debugPrint('📋 Video Data Response: $videoData');
+      if (kDebugMode) {
+        debugPrint('📋 Video Data Response: Video created successfully');
+      }
 
       // استخراج videoId من guid (هو String ويمكن استخدامه في URL)
       // videoLibraryId هو رقم (int) وليس مناسب للاستخدام في URL
@@ -112,38 +139,85 @@ class BunnyStorageService {
         );
       }
 
-      debugPrint('✅ تم إنشاء فيديو في Bunny Stream: $videoId');
+      if (kDebugMode) {
+        debugPrint('✅ تم إنشاء فيديو في Bunny Stream بنجاح');
+      }
 
       // الخطوة 2: رفع ملف الفيديو
       final uploadUrl =
           '$_streamBaseUrl/library/$_streamLibraryId/videos/$videoId';
 
-      final uploadResponse = await http.put(
-        Uri.parse(uploadUrl),
-        headers: {
-          'AccessKey': _streamApiKey,
-          'Content-Type': 'application/octet-stream',
-        },
-        body: fileBytes,
-      );
+      if (kDebugMode) {
+        debugPrint('📤 بدء رفع ملف الفيديو...');
+      }
+      if (kDebugMode) {
+        debugPrint('🔗 Upload URL: [Uploading...]');
+      }
+      if (kDebugMode) {
+        debugPrint(
+          '📦 حجم البيانات: ${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB',
+        );
+      }
+
+      // للويب: استخدام timeout أطول للملفات الكبيرة
+      final uploadResponse = await http
+          .put(
+            Uri.parse(uploadUrl),
+            headers: {
+              'AccessKey': _streamApiKey,
+              'Content-Type': 'application/octet-stream',
+            },
+            body: fileBytes,
+          )
+          .timeout(
+            _httpTimeout,
+            onTimeout: () {
+              throw Exception(
+                'انتهت مهلة رفع الفيديو. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.',
+              );
+            },
+          );
 
       if (uploadResponse.statusCode == 200 ||
           uploadResponse.statusCode == 201) {
         // بناء Stream URL للفيديو (بدون جودة محددة - سيتم تحديدها في المشغل)
         // نرجع base URL بدون جودة، وسيتم إضافة الجودة في مشغل الفيديو
         final videoUrl = '$_streamCdnUrl/$videoId';
-        debugPrint('✅ تم رفع الفيديو بنجاح إلى Bunny Stream: $videoUrl');
+        if (kDebugMode) {
+          debugPrint('✅ تم رفع الفيديو بنجاح إلى Bunny Stream');
+        }
         return videoUrl;
       } else {
-        debugPrint('❌ فشل رفع الفيديو: ${uploadResponse.statusCode}');
-        debugPrint('Response: ${uploadResponse.body}');
+        if (kDebugMode) {
+          debugPrint('❌ فشل رفع الفيديو: ${uploadResponse.statusCode}');
+          debugPrint('Response: ${uploadResponse.body}');
+        }
         throw Exception(
           'فشل رفع الفيديو: ${uploadResponse.statusCode} - ${uploadResponse.body}',
         );
       }
-    } catch (e) {
+    } on http.ClientException catch (e) {
+      debugPrint('❌ خطأ في الاتصال (ClientException): $e');
+      throw Exception(
+        'فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.',
+      );
+    } on FormatException catch (e) {
+      debugPrint('❌ خطأ في تنسيق البيانات (FormatException): $e');
+      throw Exception('خطأ في تنسيق البيانات. يرجى المحاولة مرة أخرى.');
+    } on Exception catch (e) {
       debugPrint('❌ خطأ في رفع الفيديو: $e');
-      rethrow;
+      // إذا كانت الرسالة تحتوي على "انتهت مهلة"، نعيدها كما هي
+      if (e.toString().contains('انتهت مهلة')) {
+        rethrow;
+      }
+      throw Exception(
+        'فشل رفع الفيديو: ${e.toString()}. يرجى المحاولة مرة أخرى.',
+      );
+    } catch (e) {
+      debugPrint('❌ خطأ غير متوقع في رفع الفيديو: $e');
+      throw Exception(
+        'حدث خطأ غير متوقع أثناء رفع الفيديو. يرجى المحاولة مرة أخرى.',
+      );
     }
   }
 
@@ -220,36 +294,71 @@ class BunnyStorageService {
       // بناء URL للرفع
       final uploadUrl = '$_storageBaseUrl/$_storageZoneName/$fileName';
 
-      debugPrint('🚀 بدء رفع الصورة إلى Bunny Storage: $fileName');
-      debugPrint(
-        '📦 حجم الملف: ${(fileBytes.length / 1024).toStringAsFixed(2)} KB',
-      );
+      if (kDebugMode) {
+        debugPrint('🚀 بدء رفع الصورة إلى Bunny Storage');
+        debugPrint(
+          '📦 حجم الملف: ${(fileBytes.length / 1024).toStringAsFixed(2)} KB',
+        );
+      }
 
       // رفع الملف
-      final response = await http.put(
-        Uri.parse(uploadUrl),
-        headers: {
-          'AccessKey': _storageApiKey,
-          'Content-Type': 'application/octet-stream',
-        },
-        body: fileBytes,
-      );
+      // للويب: استخدام timeout أطول للملفات الكبيرة
+      final response = await http
+          .put(
+            Uri.parse(uploadUrl),
+            headers: {
+              'AccessKey': _storageApiKey,
+              'Content-Type': 'application/octet-stream',
+            },
+            body: fileBytes,
+          )
+          .timeout(
+            _httpTimeout,
+            onTimeout: () {
+              throw Exception(
+                'انتهت مهلة رفع الصورة. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.',
+              );
+            },
+          );
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         // بناء CDN URL
         final imageUrl = '$_cdnUrl/$fileName';
-        debugPrint('✅ تم رفع الصورة بنجاح: $imageUrl');
+        if (kDebugMode) {
+          debugPrint('✅ تم رفع الصورة بنجاح');
+        }
         return imageUrl;
       } else {
-        debugPrint('❌ فشل رفع الصورة: ${response.statusCode}');
-        debugPrint('Response: ${response.body}');
+        if (kDebugMode) {
+          debugPrint('❌ فشل رفع الصورة: ${response.statusCode}');
+          debugPrint('Response: ${response.body}');
+        }
         throw Exception(
           'فشل رفع الصورة: ${response.statusCode} - ${response.body}',
         );
       }
-    } catch (e) {
+    } on http.ClientException catch (e) {
+      debugPrint('❌ خطأ في الاتصال (ClientException): $e');
+      throw Exception(
+        'فشل الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.',
+      );
+    } on FormatException catch (e) {
+      debugPrint('❌ خطأ في تنسيق البيانات (FormatException): $e');
+      throw Exception('خطأ في تنسيق البيانات. يرجى المحاولة مرة أخرى.');
+    } on Exception catch (e) {
       debugPrint('❌ خطأ في رفع الصورة: $e');
-      rethrow;
+      // إذا كانت الرسالة تحتوي على "انتهت مهلة"، نعيدها كما هي
+      if (e.toString().contains('انتهت مهلة')) {
+        rethrow;
+      }
+      throw Exception(
+        'فشل رفع الصورة: ${e.toString()}. يرجى المحاولة مرة أخرى.',
+      );
+    } catch (e) {
+      debugPrint('❌ خطأ غير متوقع في رفع الصورة: $e');
+      throw Exception(
+        'حدث خطأ غير متوقع أثناء رفع الصورة. يرجى المحاولة مرة أخرى.',
+      );
     }
   }
 
@@ -283,7 +392,9 @@ class BunnyStorageService {
   /// Returns اسم الملف مع المسار الكامل (مثل: questions/question_123.jpg)
   static String getFileNameFromUrl(String url) {
     try {
-      debugPrint('🔍 استخراج اسم الملف من URL: $url');
+      if (kDebugMode) {
+        debugPrint('🔍 استخراج اسم الملف من URL');
+      }
       final uri = Uri.parse(url);
 
       // استخراج المسار من URL (بدون الـ domain)
