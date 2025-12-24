@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
-import '../../../../../core/router/app_routers.dart';
+import '../../../tests/presentation/screens/student_test_screen.dart';
 
 class ExamCardWidget extends StatelessWidget {
   final Map<String, dynamic> exam;
@@ -12,8 +11,8 @@ class ExamCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(exam['color'] as int);
-    final isCompleted = exam['isCompleted'] as bool;
+    final color = Color((exam['color'] as int?) ?? AppColors.examColor.value);
+    final isCompleted = (exam['isCompleted'] as bool?) ?? false;
     final score = exam['score'] as int?;
 
     return Container(
@@ -38,14 +37,7 @@ class ExamCardWidget extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap:
-              onTap ??
-              () {
-                context.push(
-                  '${AppRouters.examQuizScreen}/${exam['id']}',
-                  extra: exam,
-                );
-              },
+          onTap: onTap, // Use custom onTap if provided, otherwise null (button handles navigation)
           borderRadius: BorderRadius.circular(20),
           child: ClipRect(
             child: Column(
@@ -108,7 +100,7 @@ class _ExamCardHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  exam['subject'] as String,
+                  (exam['subject'] as String?) ?? 'اختبار',
                   style: AppStyles.subTextStyle.copyWith(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -148,7 +140,7 @@ class _ExamCardHeader extends StatelessWidget {
           ),
           const SizedBox(height: 10), // تقليل من 12 إلى 10
           Text(
-            exam['title'] as String,
+            (exam['title'] as String?) ?? 'اختبار',
             style: AppStyles.subTextStyle.copyWith(
               fontSize: 18, // تقليل من 20 إلى 18
               fontWeight: FontWeight.bold,
@@ -184,7 +176,7 @@ class _ExamCardContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            exam['description'] as String,
+            (exam['description'] as String?) ?? '',
             style: AppStyles.textSecondaryStyle.copyWith(
               fontSize: 13, // تقليل من 14 إلى 13
               height: 1.3, // تقليل من 1.4 إلى 1.3
@@ -199,7 +191,7 @@ class _ExamCardContent extends StatelessWidget {
                 child: _InfoItemWidget(
                   icon: Icons.help_outline,
                   label: 'الأسئلة',
-                  value: '${exam['questionsCount']}',
+                  value: '${exam['questionsCount'] ?? 0}',
                   color: color,
                 ),
               ),
@@ -210,7 +202,31 @@ class _ExamCardContent extends StatelessWidget {
             _ScoreWidget(score: score!),
           ],
           const SizedBox(height: 10), // تقليل من 12 إلى 10
-          _StartButton(exam: exam, color: color, isCompleted: isCompleted),
+          _StartButton(
+            exam: exam,
+            color: color,
+            isCompleted: isCompleted,
+            score: score,
+            onTap: () {
+              // Navigate to student test screen
+              final testId = (exam['id'] as String?) ?? '';
+              final testTitle = (exam['title'] as String?) ?? 'اختبار';
+              final testColor = Color((exam['color'] as int?) ?? AppColors.examColor.value);
+              
+              if (testId.isEmpty) return;
+              
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StudentTestScreen(
+                    testId: testId,
+                    testTitle: testTitle,
+                    testColor: testColor,
+                  ),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -312,11 +328,15 @@ class _StartButton extends StatelessWidget {
   final Map<String, dynamic> exam;
   final Color color;
   final bool isCompleted;
+  final int? score;
+  final VoidCallback? onTap;
 
   const _StartButton({
     required this.exam,
     required this.color,
     required this.isCompleted,
+    this.score,
+    this.onTap,
   });
 
   @override
@@ -324,11 +344,11 @@ class _StartButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          // Navigation handled by parent
-        },
+        onPressed: isCompleted
+            ? null // تعطيل الزر إذا كان الاختبار مكتملاً
+            : onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
+          backgroundColor: isCompleted ? AppColors.textSecondary : color,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -338,12 +358,14 @@ class _StartButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isCompleted ? Icons.refresh : Icons.play_arrow,
+              isCompleted ? Icons.check_circle : Icons.play_arrow,
               color: AppColors.secondaryColor,
             ),
             const SizedBox(width: 8),
             Text(
-              isCompleted ? 'إعادة المحاولة' : 'بدء الاختبار',
+              isCompleted
+                  ? (score != null ? 'تم الإكمال - النتيجة: $score%' : 'تم الإكمال')
+                  : 'بدء الاختبار',
               style: AppStyles.subTextStyle.copyWith(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,

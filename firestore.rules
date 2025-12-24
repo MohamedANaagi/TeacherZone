@@ -34,6 +34,54 @@ service cloud.firestore {
              data.adminCode is string &&
              data.adminCode.size() > 0;
     }
+    
+    function isValidTest(data) {
+      return data.keys().hasAll(['title', 'description', 'adminCode', 'createdAt']) &&
+             data.title is string &&
+             data.title.size() > 0 &&
+             data.description is string &&
+             data.description.size() > 0 &&
+             data.adminCode is string &&
+             data.adminCode.size() > 0 &&
+             data.createdAt is string &&
+             data.questionsCount is int &&
+             data.questionsCount >= 0;
+    }
+    
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['testId', 'options', 'correctAnswerIndex', 'order']) &&
+             data.testId is string &&
+             data.testId.size() > 0 &&
+             // يجب أن يكون هناك نص سؤال أو صورة
+             ((data.questionText is string && data.questionText.size() > 0) ||
+              (data.imageUrl is string && data.imageUrl.size() > 0)) &&
+             data.options is list &&
+             data.options.size() >= 2 &&
+             data.correctAnswerIndex is int &&
+             data.correctAnswerIndex >= 0 &&
+             data.correctAnswerIndex < data.options.size() &&
+             data.order is int &&
+             data.order >= 0;
+    }
+    
+    function isValidTestResult(data) {
+      return data.keys().hasAll(['testId', 'studentCode', 'totalQuestions', 'correctAnswers', 'wrongAnswers', 'score', 'completedAt', 'answers']) &&
+             data.testId is string &&
+             data.testId.size() > 0 &&
+             data.studentCode is string &&
+             data.studentCode.size() > 0 &&
+             data.totalQuestions is int &&
+             data.totalQuestions > 0 &&
+             data.correctAnswers is int &&
+             data.correctAnswers >= 0 &&
+             data.wrongAnswers is int &&
+             data.wrongAnswers >= 0 &&
+             data.score is number &&
+             data.score >= 0 &&
+             data.score <= 100 &&
+             data.completedAt is string &&
+             data.answers is map;
+    }
 
     // ==================== Admin Codes Collection ====================
     match /adminCodes/{adminCodeId} {
@@ -119,6 +167,60 @@ service cloud.firestore {
                        request.resource.data.videoId == resource.data.videoId;
       
       allow delete: if true; // السماح بالحذف (عند إلغاء حالة المشاهدة)
+    }
+
+    // ==================== Tests Collection ====================
+    match /tests/{testId} {
+      // القراءة للجميع (الطلاب يحتاجون رؤية الاختبارات)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidTest(request.resource.data);
+      
+      allow update: if isValidTest(request.resource.data) &&
+                       // منع تغيير createdAt
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       // منع تغيير adminCode
+                       request.resource.data.adminCode == resource.data.adminCode;
+      
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Questions Collection ====================
+    match /questions/{questionId} {
+      // القراءة للجميع (الطلاب يحتاجون رؤية الأسئلة)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidQuestion(request.resource.data) &&
+                       // التأكد من وجود الاختبار
+                       exists(/databases/$(database)/documents/tests/$(request.resource.data.testId));
+      
+      allow update: if isValidQuestion(request.resource.data) &&
+                       // منع تغيير testId
+                       request.resource.data.testId == resource.data.testId;
+      
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Test Results Collection ====================
+    match /testResults/{resultId} {
+      // القراءة للجميع (يمكن تقييدها لاحقاً للطالب نفسه فقط)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidTestResult(request.resource.data) &&
+                       // التأكد من وجود الاختبار
+                       exists(/databases/$(database)/documents/tests/$(request.resource.data.testId));
+      
+      allow update: if isValidTestResult(request.resource.data) &&
+                       // منع تغيير testId و studentCode
+                       request.resource.data.testId == resource.data.testId &&
+                       request.resource.data.studentCode == resource.data.studentCode &&
+                       // منع تغيير completedAt
+                       request.resource.data.completedAt == resource.data.completedAt;
+      
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 
     // ==================== Default Deny ====================

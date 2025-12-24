@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/errors/exceptions.dart';
+import '../../../../core/services/bunny_storage_service.dart';
 import '../models/code_model.dart';
 import '../models/course_model.dart';
 import '../models/video_model.dart';
@@ -360,15 +362,38 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
   @override
   Future<void> deleteVideo(String videoId) async {
     try {
-      // جلب معلومات الفيديو لمعرفة الكورس المرتبط
+      // جلب معلومات الفيديو لمعرفة الكورس المرتبط و videoUrl
       final videoDoc = await firestore.collection('videos').doc(videoId).get();
       if (!videoDoc.exists) {
         throw ServerException('الفيديو غير موجود');
       }
 
-      final courseId = videoDoc.data()?['courseId'] as String?;
+      final videoData = videoDoc.data();
+      final courseId = videoData?['courseId'] as String?;
+      final videoUrl = videoData?['url'] as String?; // الحقل في Firestore هو 'url' وليس 'videoUrl'
 
-      // حذف الفيديو
+      // حذف الفيديو من Bunny Storage إذا كان موجوداً
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        try {
+          debugPrint('🔍 محاولة حذف الفيديو من Bunny Storage: $videoUrl');
+          final fileName = BunnyStorageService.getFileNameFromUrl(videoUrl);
+          debugPrint('📝 اسم الملف المستخرج: $fileName');
+          if (fileName.isNotEmpty) {
+            await BunnyStorageService.deleteVideo(fileName);
+            debugPrint('✅ تم حذف الفيديو بنجاح من Bunny Storage');
+          } else {
+            debugPrint('⚠️ لم يتم استخراج اسم الملف من URL');
+          }
+        } catch (e) {
+          // لا نوقف العملية إذا فشل حذف الملف من Bunny Storage
+          // فقط نطبع الخطأ ونكمل
+          debugPrint('⚠️ فشل حذف الفيديو من Bunny Storage: $e');
+        }
+      } else {
+        debugPrint('⚠️ لا يوجد videoUrl في بيانات الفيديو');
+      }
+
+      // حذف الفيديو من Firestore
       await firestore.collection('videos').doc(videoId).delete();
 
       // تحديث عدد الدروس في الكورس

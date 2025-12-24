@@ -56,7 +56,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (code != null || adminCode != null) {
       debugPrint('🏠 تحميل البيانات - code: $code, adminCode: $adminCode');
       context.read<CoursesCubit>().loadCourses(userCode: code, adminCode: adminCode);
-      context.read<ExamsCubit>().loadExams();
+      context.read<ExamsCubit>().loadExams(
+        adminCode: adminCode,
+        studentCode: code,
+      );
       _hasLoadedData = true;
     } else {
       debugPrint('⏳ انتظار تحميل بيانات المستخدم...');

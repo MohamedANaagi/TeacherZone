@@ -13,4 +13,5 @@ class AppRouters {
   static const String adminAddCodeScreen = '/admin/add-code';
   static const String adminAddCourseScreen = '/admin/add-course';
   static const String adminManageVideosScreen = '/admin/manage-videos';
+  static const String adminAddTestScreen = '/admin/add-test';
 }

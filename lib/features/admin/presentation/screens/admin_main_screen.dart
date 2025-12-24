@@ -72,6 +72,19 @@ class AdminMainScreen extends StatelessWidget {
               context.push(AppRouters.adminManageVideosScreen);
             },
           ),
+          const SizedBox(height: 16),
+
+          // بطاقة إدارة الاختبارات
+          _buildAdminCard(
+            context: context,
+            title: 'إدارة الاختبارات',
+            description: 'إضافة الاختبارات والأسئلة',
+            icon: Icons.quiz,
+            color: AppColors.examColor,
+            onTap: () {
+              context.push(AppRouters.adminAddTestScreen);
+            },
+          ),
           const SizedBox(height: 32),
 
           // زر تسجيل الخروج

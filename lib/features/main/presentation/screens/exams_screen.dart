@@ -5,10 +5,49 @@ import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../exams/presentation/cubit/exams_cubit.dart';
 import '../../../exams/presentation/cubit/exams_state.dart';
+import '../../../user/presentation/cubit/user_cubit.dart';
 import '../widgets/exam_card_widget.dart';
 
-class ExamsScreen extends StatelessWidget {
+class ExamsScreen extends StatefulWidget {
   const ExamsScreen({super.key});
+
+  @override
+  State<ExamsScreen> createState() => _ExamsScreenState();
+}
+
+class _ExamsScreenState extends State<ExamsScreen> {
+  bool _hasLoadedExams = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExamsIfReady();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasLoadedExams) {
+      _loadExamsIfReady();
+    }
+  }
+
+  void _loadExamsIfReady() {
+    if (!mounted || _hasLoadedExams) return;
+
+    final userState = context.read<UserCubit>().state;
+    final adminCode = userState.adminCode;
+    final studentCode = userState.code;
+    
+    // تحميل الاختبارات مع نتائج الطالب
+    context.read<ExamsCubit>().loadExams(
+      adminCode: adminCode,
+      studentCode: studentCode,
+    );
+    _hasLoadedExams = true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +82,11 @@ class ExamsScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      context.read<ExamsCubit>().loadExams();
+                      final userState = context.read<UserCubit>().state;
+                      context.read<ExamsCubit>().loadExams(
+                        adminCode: userState.adminCode,
+                        studentCode: userState.code,
+                      );
                     },
                     child: const Text('إعادة المحاولة'),
                   ),

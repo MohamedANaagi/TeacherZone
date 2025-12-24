@@ -13,6 +13,7 @@ import '../../features/admin/presentation/screens/admin_main_screen.dart';
 import '../../features/admin/presentation/screens/admin_add_code_screen.dart';
 import '../../features/admin/presentation/screens/admin_add_course_screen.dart';
 import '../../features/admin/presentation/screens/admin_manage_videos_screen.dart';
+import '../../features/tests/presentation/screens/admin_add_test_screen.dart';
 import 'app_routers.dart';
 
 class RouterGenerator {
@@ -122,6 +123,13 @@ class RouterGenerator {
         name: AppRouters.adminManageVideosScreen,
         builder: (context, state) {
           return const AdminManageVideosScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.adminAddTestScreen,
+        name: AppRouters.adminAddTestScreen,
+        builder: (context, state) {
+          return const AdminAddTestScreen();
         },
       ),
     ],
