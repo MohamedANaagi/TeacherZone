@@ -3,6 +3,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../../../core/services/bunny_storage_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoUrl;
@@ -30,10 +31,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
+  
+  // Base URL للفيديو (بدون جودة)
+  late String _baseVideoUrl;
+  
+  // استخدام HLS للجودة التكيفية التلقائية
+  bool _useHls = true;
 
   @override
   void initState() {
     super.initState();
+    // استخراج base URL من videoUrl (إزالة أي جودة موجودة)
+    _baseVideoUrl = widget.videoUrl;
+    final qualityPattern = RegExp(r'/play_\d+p\.mp4$|/playlist\.m3u8$');
+    if (qualityPattern.hasMatch(_baseVideoUrl)) {
+      _baseVideoUrl = _baseVideoUrl.replaceAll(qualityPattern, '');
+    }
     _initializePlayer();
   }
 
@@ -46,10 +59,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
       }
 
-      // لا نستخدم webview على iOS بسبب channel-error، نستخدم video_player مباشرة
+      // تنظيف المشغل القديم
+      _chewieController?.dispose();
+      await _videoPlayerController?.dispose();
 
+      // بناء URL الفيديو باستخدام HLS Playlist (adaptive streaming)
+      final videoUrl = _useHls
+          ? BunnyStorageService.getHlsPlaylistUrl(_baseVideoUrl)
+          : BunnyStorageService.getVideoUrlWithQuality(
+              _baseVideoUrl,
+              '720p', // fallback quality
+            );
+
+      // لا نستخدم webview على iOS بسبب channel-error، نستخدم video_player مباشرة
+      // HLS Playlist يدعم adaptive streaming تلقائياً
       _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(widget.videoUrl),
+        Uri.parse(videoUrl),
       );
 
       await _videoPlayerController!.initialize();
@@ -152,6 +177,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          // مؤشر HLS Adaptive Streaming
+          Tooltip(
+            message: 'HLS Adaptive Streaming - الجودة التكيفية التلقائية',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.primaryColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'HLS',
+                    style: AppStyles.textPrimaryStyle.copyWith(
+                      color: AppColors.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading
           ? const Center(
