@@ -490,13 +490,16 @@ class _AdminDialogContentState extends State<_AdminDialogContent> {
         return;
       }
 
-      // حفظ adminCode و adminName في UserCubit
+      // حفظ adminCode و adminName و adminPhone و adminDescription و adminImageUrl في UserCubit
       if (mounted) {
         try {
           final userCubit = context.read<UserCubit>();
           await userCubit.updateUser(
             adminCode: adminCodeModel.adminCode,
             adminName: adminCodeModel.name,
+            adminPhone: adminCodeModel.phone,
+            adminDescription: adminCodeModel.description,
+            adminImageUrl: adminCodeModel.imageUrl,
             isLoggedIn: true,
           );
         } catch (e) {

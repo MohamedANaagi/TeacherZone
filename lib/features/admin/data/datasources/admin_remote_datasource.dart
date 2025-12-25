@@ -13,6 +13,7 @@ abstract class AdminRemoteDataSource {
   Future<bool> validateAdminCode(String adminCode);
   Future<String?> getAdminCodeByCode(String code); // جلب adminCode مباشرة من adminCodes collection
   Future<AdminCodeModel?> getAdminCodeModelByCode(String code); // جلب AdminCodeModel بالكامل (يشمل الاسم)
+  Future<void> updateAdminCodeImageUrl(String adminCode, String imageUrl); // تحديث صورة الأدمن
 
   // Codes
   Future<void> addCode(CodeModel code);
@@ -142,6 +143,29 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       );
     } catch (e) {
       throw ServerException('فشل جلب بيانات الأدمن: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> updateAdminCodeImageUrl(String adminCode, String imageUrl) async {
+    try {
+      final snapshot = await firestore
+          .collection('adminCodes')
+          .where('adminCode', isEqualTo: adminCode.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (snapshot.docs.isEmpty) {
+        throw ServerException('كود الأدمن غير موجود');
+      }
+
+      final adminCodeDoc = snapshot.docs.first;
+      await adminCodeDoc.reference.update({'imageUrl': imageUrl});
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('فشل تحديث صورة الأدمن: ${e.toString()}');
     }
   }
 

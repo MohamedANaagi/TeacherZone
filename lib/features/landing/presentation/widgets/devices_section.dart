@@ -8,10 +8,7 @@ import 'device_card.dart';
 class DevicesSection extends StatelessWidget {
   final bool isMobile;
 
-  const DevicesSection({
-    super.key,
-    required this.isMobile,
-  });
+  const DevicesSection({super.key, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
@@ -61,19 +58,19 @@ class DevicesSection extends StatelessWidget {
         'icon': Icons.phone_iphone,
         'title': 'iPhone',
         'description': 'تطبيق سريع وسهل على iPhone',
-        'color': Colors.black,
+        'color': const Color(0xFF1C1C1E), // أسود أنيق
       },
       {
         'icon': Icons.tablet,
         'title': 'iPad',
         'description': 'تجربة ممتازة على iPad',
-        'color': Colors.blue,
+        'color': const Color(0xFF007AFF), // أزرق iOS
       },
       {
         'icon': Icons.phone_android,
         'title': 'Android',
         'description': 'متوافق مع جميع أجهزة Android',
-        'color': Colors.green,
+        'color': const Color(0xFF34C759), // أخضر Android
       },
       {
         'icon': Icons.laptop,
@@ -85,35 +82,43 @@ class DevicesSection extends StatelessWidget {
 
     if (isMobile) {
       return Column(
-        children: devices
-            .map((device) => Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: DeviceCard(
-                    icon: device['icon'] as IconData,
-                    title: device['title'] as String,
-                    description: device['description'] as String,
-                    color: device['color'] as Color,
-                  ),
-                ))
-            .toList(),
+        children: devices.asMap().entries.map((entry) {
+          final index = entry.key;
+          final device = entry.value;
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index < devices.length - 1 ? 20 : 0,
+            ),
+            child: DeviceCard(
+              icon: device['icon'] as IconData,
+              title: device['title'] as String,
+              description: device['description'] as String,
+              color: device['color'] as Color,
+            ),
+          );
+        }).toList(),
       );
     }
 
     return Row(
-      children: devices
-          .map((device) => Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 12),
-                  child: DeviceCard(
-                    icon: device['icon'] as IconData,
-                    title: device['title'] as String,
-                    description: device['description'] as String,
-                    color: device['color'] as Color,
-                  ),
-                ),
-              ))
-          .toList(),
+      children: devices.asMap().entries.map((entry) {
+        final index = entry.key;
+        final device = entry.value;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: index == 0 ? 0 : 16,
+              right: index == devices.length - 1 ? 0 : 16,
+            ),
+            child: DeviceCard(
+              icon: device['icon'] as IconData,
+              title: device['title'] as String,
+              description: device['description'] as String,
+              color: device['color'] as Color,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
-

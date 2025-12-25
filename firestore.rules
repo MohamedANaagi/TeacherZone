@@ -88,8 +88,13 @@ service cloud.firestore {
       // القراءة للجميع (لأن التحقق من كود الأدمن يحدث قبل تسجيل الدخول)
       allow read: if true;
       
-      // الكتابة محظورة - فقط من Firebase Console
-      allow write: if false;
+      // السماح بتحديث imageUrl فقط (لرفع صورة الأدمن)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['imageUrl']) &&
+                       request.resource.data.imageUrl is string;
+      
+      // باقي عمليات الكتابة محظورة - فقط من Firebase Console
+      allow create, delete: if false;
     }
 
     // ==================== Codes Collection ====================

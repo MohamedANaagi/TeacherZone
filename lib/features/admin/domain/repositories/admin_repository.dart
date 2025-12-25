@@ -9,6 +9,7 @@ abstract class AdminRepository {
   Future<bool> validateAdminCode(String adminCode);
   Future<String?> getAdminCodeByCode(String code); // جلب adminCode مباشرة من adminCodes collection
   Future<AdminCodeModel?> getAdminCodeModelByCode(String code); // جلب AdminCodeModel بالكامل (يشمل الاسم)
+  Future<void> updateAdminCodeImageUrl(String adminCode, String imageUrl); // تحديث صورة الأدمن
 
   // Codes
   Future<void> addCode(CodeModel code);

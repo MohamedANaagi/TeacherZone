@@ -7,6 +7,9 @@ class UserState extends Equatable {
   final String? code; // كود المستخدم
   final String? adminCode; // كود الأدمن المرتبط بهذا المستخدم
   final String? adminName; // اسم الأدمن
+  final String? adminPhone; // رقم هاتف الأدمن
+  final String? adminDescription; // وصف الأدمن
+  final String? adminImageUrl; // رابط صورة الأدمن من Bunny Storage
   final DateTime? subscriptionEndDate;
   final bool isLoggedIn;
 
@@ -17,6 +20,9 @@ class UserState extends Equatable {
     this.code,
     this.adminCode,
     this.adminName,
+    this.adminPhone,
+    this.adminDescription,
+    this.adminImageUrl,
     this.subscriptionEndDate,
     this.isLoggedIn = false,
   });
@@ -37,6 +43,9 @@ class UserState extends Equatable {
     String? code,
     String? adminCode,
     String? adminName,
+    String? adminPhone,
+    String? adminDescription,
+    String? adminImageUrl,
     DateTime? subscriptionEndDate,
     bool? isLoggedIn,
     bool? clearName,
@@ -45,6 +54,9 @@ class UserState extends Equatable {
     bool? clearCode,
     bool? clearAdminCode,
     bool? clearAdminName,
+    bool? clearAdminPhone,
+    bool? clearAdminDescription,
+    bool? clearAdminImageUrl,
     bool? clearSubscriptionEndDate,
   }) {
     return UserState(
@@ -54,6 +66,13 @@ class UserState extends Equatable {
       code: clearCode == true ? null : (code ?? this.code),
       adminCode: clearAdminCode == true ? null : (adminCode ?? this.adminCode),
       adminName: clearAdminName == true ? null : (adminName ?? this.adminName),
+      adminPhone: clearAdminPhone == true ? null : (adminPhone ?? this.adminPhone),
+      adminDescription: clearAdminDescription == true
+          ? null
+          : (adminDescription ?? this.adminDescription),
+      adminImageUrl: clearAdminImageUrl == true
+          ? null
+          : (adminImageUrl ?? this.adminImageUrl),
       subscriptionEndDate: clearSubscriptionEndDate == true
           ? null
           : (subscriptionEndDate ?? this.subscriptionEndDate),
@@ -69,6 +88,9 @@ class UserState extends Equatable {
     code,
     adminCode,
     adminName,
+    adminPhone,
+    adminDescription,
+    adminImageUrl,
     subscriptionEndDate,
     isLoggedIn,
   ];

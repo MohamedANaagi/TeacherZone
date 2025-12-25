@@ -62,6 +62,18 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<void> updateAdminCodeImageUrl(String adminCode, String imageUrl) async {
+    try {
+      await remoteDataSource.updateAdminCodeImageUrl(adminCode, imageUrl);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('حدث خطأ أثناء تحديث صورة الأدمن');
+    }
+  }
+
+  @override
   Future<void> addCode(CodeModel code) async {
     try {
       await remoteDataSource.addCode(code);
