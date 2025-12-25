@@ -280,9 +280,10 @@ class _StatsCardsState extends State<_StatsCards> {
     });
 
     try {
-      // حساب عدد الدروس المكتملة والكورسات النشطة
+      // حساب عدد الدروس المكتملة وعدد الكورسات الموجودة
       int completedLessons = 0;
-      int activeCourses = 0;
+      // عدد الكورسات الموجودة حالياً (كل الكورسات)
+      int activeCourses = widget.courses.length;
 
       for (final course in widget.courses) {
         final courseId = course['id'] as String;
@@ -296,11 +297,6 @@ class _StatsCardsState extends State<_StatsCards> {
         
         // إضافة عدد الفيديوهات المشاهدة للدروس المكتملة
         completedLessons += watchedVideos.length;
-        
-        // إذا كان هناك فيديوهات مشاهدة، الكورس نشط
-        if (watchedVideos.isNotEmpty) {
-          activeCourses++;
-        }
       }
 
       if (mounted) {
@@ -311,7 +307,7 @@ class _StatsCardsState extends State<_StatsCards> {
         });
         
         debugPrint(
-          'الإحصائيات: $completedLessons درس مكتمل، $activeCourses كورسات نشطة',
+          'الإحصائيات: $completedLessons درس مكتمل، $activeCourses كورسات موجودة',
         );
       }
     } catch (e) {
@@ -344,7 +340,7 @@ class _StatsCardsState extends State<_StatsCards> {
             child: StatCardWidget(
               icon: Icons.book,
               title: '-',
-              subtitle: 'كورسات نشطة',
+              subtitle: 'كورسات',
               color: AppColors.infoColor,
             ),
           ),
@@ -376,7 +372,7 @@ class _StatsCardsState extends State<_StatsCards> {
           child: StatCardWidget(
             icon: Icons.book,
             title: '$_activeCourses',
-            subtitle: 'كورسات نشطة',
+            subtitle: 'كورسات',
             color: AppColors.infoColor,
           ),
         ),

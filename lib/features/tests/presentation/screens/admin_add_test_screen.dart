@@ -397,8 +397,9 @@ class _AdminAddTestScreenState extends State<AdminAddTestScreen> {
                                         Row(
                                           children: [
                                             IconButton(
-                                              onPressed: () {
-                                                Navigator.push(
+                                              onPressed: () async {
+                                                // الانتقال إلى شاشة إدارة الأسئلة وانتظار العودة
+                                                await Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (context) =>
@@ -407,6 +408,16 @@ class _AdminAddTestScreenState extends State<AdminAddTestScreen> {
                                                     ),
                                                   ),
                                                 );
+                                                // إعادة تحميل قائمة الاختبارات بعد العودة
+                                                // لتحديث عدد الأسئلة (مع تأخير صغير لضمان اكتمال تحديث Firestore)
+                                                if (mounted) {
+                                                  await Future.delayed(
+                                                    const Duration(milliseconds: 500),
+                                                  );
+                                                  if (mounted) {
+                                                    _loadTests();
+                                                  }
+                                                }
                                               },
                                               icon: const Icon(
                                                 Icons.edit_outlined,
