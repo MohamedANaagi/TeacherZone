@@ -1,12 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
-// للويب فقط - استخدام HTML File API مباشرة
-import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -35,6 +32,8 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
 
   String? _selectedCourseId;
   bool _isLoading = false;
+  bool _isUploading = false; // حالة الرفع
+  double _uploadProgress = 0.0; // نسبة التقدم (0.0 إلى 1.0)
   File? _selectedVideoFile; // ملف الفيديو المختار (لـ iOS و Android)
   PlatformFile? _selectedPlatformFile; // PlatformFile للويب
   String? _uploadedVideoUrl; // URL الفيديو بعد الرفع
@@ -72,162 +71,44 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
     try {
       debugPrint('🎬 بدء اختيار ملف الفيديو...');
       
-      // للويب: استخدام HTML File API مباشرة لتجنب مشاكل file_picker
+      // استخدام file_picker لجميع المنصات
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+        allowedExtensions: null,
+      );
+
+      if (!mounted) return;
+
+      if (result == null || result.files.isEmpty) {
+        debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+        return;
+      }
+
+      final selectedFile = result.files.first;
+      debugPrint('📁 الملف المختار: ${selectedFile.name}');
+      debugPrint('📦 حجم الملف: ${selectedFile.size} bytes');
+      
       if (kIsWeb) {
-        debugPrint('🌐 استخدام HTML File API للويب...');
-        
-        // إنشاء input element مخفي
-        final input = html.FileUploadInputElement()
-          ..accept = 'video/*'
-          ..style.display = 'none';
-        
-        html.document.body!.append(input);
-        
-        // انتظار اختيار المستخدم للملف
-        final completer = Completer<html.File?>();
-        
-        input.onChange.listen((event) {
-          final files = input.files;
-          if (files != null && files.isNotEmpty) {
-            completer.complete(files.first);
-          } else {
-            completer.complete(null);
-          }
-          input.remove(); // إزالة input بعد الاستخدام
-        });
-        
-        // فتح dialog اختيار الملف
-        input.click();
-        
-        // انتظار اختيار المستخدم
-        final htmlFile = await completer.future.timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            input.remove();
-            return null;
-          },
-        );
-        
-        if (!mounted) return;
-        
-        if (htmlFile == null) {
-          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
-          return;
-        }
-        
-        debugPrint('📁 الملف المختار: ${htmlFile.name}');
-        debugPrint('📦 حجم الملف: ${htmlFile.size} bytes');
-        
-        // قراءة الملف باستخدام FileReader
-        final reader = html.FileReader();
-        final bytesCompleter = Completer<Uint8List>();
-        
-        // استخدام onLoad بدلاً من onLoadEnd لتجنب مشاكل التوقيت
-        reader.onLoad.listen((_) {
-          try {
-            // قراءة ArrayBuffer وتحويله إلى Uint8List
-            final result = reader.result;
-            
-            if (result == null) {
-              bytesCompleter.completeError(Exception('فشل قراءة الملف: النتيجة فارغة'));
-              return;
-            }
-            
-            Uint8List bytes;
-            
-            // في dart:html، readAsArrayBuffer يعيد ByteBuffer مباشرة
-            // لكن في release build قد يكون هناك اختلاف
-            try {
-              // محاولة قراءة كـ ByteBuffer (الطريقة الأساسية)
-              if (result is ByteBuffer) {
-                bytes = result.asUint8List();
-                debugPrint('✅ تم قراءة الملف كـ ByteBuffer (${bytes.length} bytes)');
-              } else {
-                // محاولة تحويل مباشرة
-                final buffer = result as ByteBuffer;
-                bytes = buffer.asUint8List();
-                debugPrint('✅ تم قراءة الملف بعد التحويل (${bytes.length} bytes)');
-              }
-            } catch (e) {
-              // إذا فشل، جرب طرق أخرى
-              debugPrint('⚠️ محاولة طريقة بديلة لقراءة الملف...');
-              debugPrint('   نوع النتيجة: ${result.runtimeType}');
-              
-              if (result is TypedData) {
-                bytes = Uint8List.view(result.buffer);
-                debugPrint('✅ تم قراءة الملف كـ TypedData (${bytes.length} bytes)');
-              } else if (result is List) {
-                bytes = Uint8List.fromList(result.cast<int>());
-                debugPrint('✅ تم قراءة الملف كـ List (${bytes.length} bytes)');
-              } else {
-                debugPrint('❌ نوع غير معروف: ${result.runtimeType}');
-                bytesCompleter.completeError(Exception('نوع غير معروف للنتيجة: ${result.runtimeType}'));
-                return;
-              }
-            }
-            
-            bytesCompleter.complete(bytes);
-          } catch (e, stackTrace) {
-            debugPrint('❌ خطأ في قراءة الملف: $e');
-            debugPrint('📚 Stack trace: $stackTrace');
-            bytesCompleter.completeError(Exception('فشل قراءة الملف: $e'));
-          }
-        });
-        
-        reader.onError.listen((error) {
-          debugPrint('❌ خطأ في FileReader: $error');
-          bytesCompleter.completeError(Exception('خطأ في FileReader: $error'));
-        });
-        
-        // قراءة الملف كـ ArrayBuffer
-        reader.readAsArrayBuffer(htmlFile);
-        
-        final fileBytes = await bytesCompleter.future;
-        
-        debugPrint('✅ تم قراءة الملف بنجاح (${fileBytes.length} bytes)');
-        
-        // إنشاء PlatformFile مع bytes
-        final platformFile = PlatformFile(
-          name: htmlFile.name,
-          size: htmlFile.size.toInt(),
-          bytes: fileBytes,
-          path: null,
-          readStream: null,
-        );
-        
+        // للويب: استخدام PlatformFile مباشرة (يحتوي على bytes)
         if (mounted) {
+          setState(() {
+            _selectedVideoFile = null;
+            _uploadedVideoUrl = null;
+            _selectedPlatformFile = selectedFile;
+          });
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم اختيار الفيديو: ${htmlFile.name}'),
+              content: Text('تم اختيار الفيديو: ${selectedFile.name}'),
               backgroundColor: AppColors.successColor,
             ),
           );
           
-          setState(() {
-            _selectedVideoFile = null;
-            _uploadedVideoUrl = null;
-            _selectedPlatformFile = platformFile;
-          });
-          
-          debugPrint('✅ تم حفظ PlatformFile بنجاح');
+          debugPrint('✅ تم حفظ PlatformFile للويب بنجاح');
         }
       } else {
-        // للـ iOS و Android: استخدام file_picker
-        final result = await FilePicker.platform.pickFiles(
-          type: FileType.video,
-          allowMultiple: false,
-          allowedExtensions: null,
-        );
-
-        if (!mounted) return;
-
-        if (result == null || result.files.isEmpty) {
-          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
-          return;
-        }
-
-        final selectedFile = result.files.first;
-        
+        // للـ iOS و Android: استخدام File path
         if (selectedFile.path != null && selectedFile.path!.isNotEmpty) {
           debugPrint('✅ مسار الملف: ${selectedFile.path}');
           final file = File(selectedFile.path!);
@@ -246,7 +127,29 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
                   backgroundColor: AppColors.successColor,
                 ),
               );
+              
+              debugPrint('✅ تم حفظ File للهاتف بنجاح');
             }
+          } else {
+            debugPrint('❌ الملف غير موجود في المسار: ${selectedFile.path}');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('الملف غير موجود. يرجى المحاولة مرة أخرى.'),
+                  backgroundColor: AppColors.errorColor,
+                ),
+              );
+            }
+          }
+        } else {
+          debugPrint('⚠️ لا يوجد مسار للملف (قد يكون ملف مؤقت)');
+          // محاولة استخدام PlatformFile كبديل
+          if (mounted) {
+            setState(() {
+              _selectedVideoFile = null;
+              _uploadedVideoUrl = null;
+              _selectedPlatformFile = selectedFile;
+            });
           }
         }
       }
@@ -375,14 +278,11 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
         videoUrl = _uploadedVideoUrl!;
       } else {
         // رفع الفيديو إلى Bunny Storage
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('جاري رفع الفيديو...'),
-              backgroundColor: AppColors.infoColor,
-            ),
-          );
-        }
+        // إعادة تعيين التقدم
+        setState(() {
+          _isUploading = true;
+          _uploadProgress = 0.0;
+        });
 
         // إنشاء اسم فريد للفيديو
         final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -391,52 +291,80 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
             : _selectedVideoFile!.path.split('/').last;
         final fileName = '${_selectedCourseId}_${timestamp}_$originalFileName';
         
-        // رفع الفيديو حسب المنصة
+        // رفع الفيديو حسب المنصة مع تتبع التقدم
         if (kIsWeb) {
-          // للويب: استخدام bytes أو قراءة من stream
-          Uint8List? videoBytes;
-          
-          if (_selectedPlatformFile?.bytes != null && _selectedPlatformFile!.bytes!.isNotEmpty) {
-            // استخدام bytes مباشرة
-            videoBytes = _selectedPlatformFile!.bytes;
-            debugPrint('✅ استخدام bytes مباشرة (${videoBytes?.length ?? 0} bytes)');
+          // للويب: استخدام Stream للملفات الكبيرة لتوفير الذاكرة
+          if (_selectedPlatformFile?.readStream != null && _selectedPlatformFile!.size > 50 * 1024 * 1024) {
+            // للملفات الأكبر من 50 MB: استخدام Stream مباشرة
+            debugPrint('📡 استخدام Stream للرفع (ملف كبير: ${(_selectedPlatformFile!.size / 1024 / 1024).toStringAsFixed(2)} MB)');
+            videoUrl = await BunnyStorageService.uploadVideo(
+              videoStream: _selectedPlatformFile!.readStream!,
+              fileSize: _selectedPlatformFile!.size,
+              fileName: fileName,
+              onProgress: (progress) {
+                if (mounted) {
+                  setState(() {
+                    _uploadProgress = progress;
+                  });
+                }
+              },
+            );
+          } else if (_selectedPlatformFile?.bytes != null && _selectedPlatformFile!.bytes!.isNotEmpty) {
+            // للملفات الصغيرة: استخدام bytes مباشرة
+            debugPrint('✅ استخدام bytes مباشرة (${(_selectedPlatformFile!.bytes!.length / 1024 / 1024).toStringAsFixed(2)} MB)');
+            videoUrl = await BunnyStorageService.uploadVideo(
+              videoBytes: _selectedPlatformFile!.bytes!,
+              fileName: fileName,
+              onProgress: (progress) {
+                if (mounted) {
+                  setState(() {
+                    _uploadProgress = progress;
+                  });
+                }
+              },
+            );
           } else if (_selectedPlatformFile?.readStream != null) {
-            // قراءة من stream
-            debugPrint('📡 قراءة الملف من stream عند الرفع...');
-            final chunks = <List<int>>[];
-            await for (final chunk in _selectedPlatformFile!.readStream!) {
-              chunks.add(chunk);
-            }
-            // دمج جميع الـ chunks
-            final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
-            videoBytes = Uint8List(totalLength);
-            int offset = 0;
-            for (final chunk in chunks) {
-              videoBytes.setRange(offset, offset + chunk.length, chunk);
-              offset += chunk.length;
-            }
-            debugPrint('✅ تم قراءة الملف من stream (${videoBytes.length} bytes)');
+            // للملفات المتوسطة: استخدام Stream أيضاً
+            debugPrint('📡 استخدام Stream للرفع (${(_selectedPlatformFile!.size / 1024 / 1024).toStringAsFixed(2)} MB)');
+            videoUrl = await BunnyStorageService.uploadVideo(
+              videoStream: _selectedPlatformFile!.readStream!,
+              fileSize: _selectedPlatformFile!.size,
+              fileName: fileName,
+              onProgress: (progress) {
+                if (mounted) {
+                  setState(() {
+                    _uploadProgress = progress;
+                  });
+                }
+              },
+            );
           } else {
             throw Exception('لم يتم اختيار ملف فيديو أو الملف غير قابل للقراءة');
           }
-          
-          videoUrl = await BunnyStorageService.uploadVideo(
-            videoBytes: videoBytes!,
-            fileName: fileName,
-          );
         } else {
-          // لـ iOS و Android: استخدام File
+          // لـ iOS و Android: استخدام File (سيستخدم Stream تلقائياً)
           if (_selectedVideoFile == null) {
             throw Exception('لم يتم اختيار ملف فيديو');
           }
           videoUrl = await BunnyStorageService.uploadVideo(
             videoFile: _selectedVideoFile!,
             fileName: fileName,
+            onProgress: (progress) {
+              if (mounted) {
+                setState(() {
+                  _uploadProgress = progress;
+                });
+              }
+            },
           );
         }
         
+        // لا نحتاج لتعيين _uploadProgress = 1.0 هنا
+        // لأن onProgress callback سيرسل 100% بعد اكتمال الرفع
         setState(() {
           _uploadedVideoUrl = videoUrl;
+          _isUploading = false;
+          // _uploadProgress سيتم تحديثه تلقائياً من onProgress callback
         });
       }
 
@@ -905,12 +833,62 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
                               textAlign: TextAlign.center,
                             ),
                           ),
+                          // شريط التقدم أثناء الرفع
+                          if (_isUploading) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.primaryColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'جاري رفع الفيديو...',
+                                        style: AppStyles.subHeadingStyle.copyWith(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${(_uploadProgress * 100).toStringAsFixed(1)}%',
+                                        style: AppStyles.subHeadingStyle.copyWith(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: LinearProgressIndicator(
+                                      value: _uploadProgress,
+                                      minHeight: 8,
+                                      backgroundColor: AppColors.borderLight,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 24),
                           // زر الإضافة
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _addVideo,
+                              onPressed: (_isLoading || _isUploading) ? null : _addVideo,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.accentColor,
                                 padding: const EdgeInsets.symmetric(
@@ -921,7 +899,7 @@ class _AdminManageVideosScreenState extends State<AdminManageVideosScreen> {
                                 ),
                                 elevation: 4,
                               ),
-                              child: _isLoading
+                              child: (_isLoading || _isUploading)
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,

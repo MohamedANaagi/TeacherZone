@@ -63,21 +63,71 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _chewieController?.dispose();
       await _videoPlayerController?.dispose();
 
-      // بناء URL الفيديو باستخدام HLS Playlist (adaptive streaming)
-      final videoUrl = _useHls
-          ? BunnyStorageService.getHlsPlaylistUrl(_baseVideoUrl)
-          : BunnyStorageService.getVideoUrlWithQuality(
-              _baseVideoUrl,
-              '720p', // fallback quality
-            );
+      // التحقق من جاهزية الفيديو في Bunny Stream (إذا كان URL من Bunny Stream)
+      if (_baseVideoUrl.contains('b-cdn.net') || _baseVideoUrl.contains('bunnycdn.com')) {
+        debugPrint('🔍 التحقق من جاهزية الفيديو في Bunny Stream...');
+        try {
+          // استخراج videoId من URL
+          final uri = Uri.parse(_baseVideoUrl);
+          final pathParts = uri.path.split('/');
+          if (pathParts.isNotEmpty) {
+            final videoId = pathParts.last;
+            final isReady = await BunnyStorageService.isVideoReady(videoId);
+            if (!isReady) {
+              throw Exception(
+                'الفيديو قيد المعالجة في Bunny Stream. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.',
+              );
+            }
+            debugPrint('✅ الفيديو جاهز للتشغيل');
+          }
+        } catch (e) {
+          debugPrint('⚠️ خطأ في التحقق من جاهزية الفيديو: $e');
+          // نستمر في المحاولة حتى لو فشل التحقق
+        }
+      }
 
-      // لا نستخدم webview على iOS بسبب channel-error، نستخدم video_player مباشرة
-      // HLS Playlist يدعم adaptive streaming تلقائياً
-      _videoPlayerController = VideoPlayerController.networkUrl(
-        Uri.parse(videoUrl),
-      );
+      // محاولة تشغيل الفيديو بترتيب: HLS -> 720p MP4 -> 480p MP4 -> 360p MP4
+      final List<String> urlsToTry = [
+        if (_useHls) BunnyStorageService.getHlsPlaylistUrl(_baseVideoUrl),
+        BunnyStorageService.getVideoUrlWithQuality(_baseVideoUrl, '720p'),
+        BunnyStorageService.getVideoUrlWithQuality(_baseVideoUrl, '480p'),
+        BunnyStorageService.getVideoUrlWithQuality(_baseVideoUrl, '360p'),
+      ];
 
-      await _videoPlayerController!.initialize();
+      String? successfulUrl;
+      Exception? lastException;
+
+      for (final videoUrl in urlsToTry) {
+        try {
+          debugPrint('🎬 محاولة تشغيل الفيديو من URL: $videoUrl');
+          debugPrint('📹 Base URL: $_baseVideoUrl');
+
+          // إضافة referer header لتجاوز "Block direct url file access" في Bunny Stream
+          _videoPlayerController = VideoPlayerController.networkUrl(
+            Uri.parse(videoUrl),
+            httpHeaders: {
+              'Referer': 'https://vz-c07dacb9-781.b-cdn.net/',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          );
+
+          await _videoPlayerController!.initialize();
+          successfulUrl = videoUrl;
+          debugPrint('✅ نجح تحميل الفيديو من: $videoUrl');
+          break;
+        } catch (e) {
+          debugPrint('❌ فشل تحميل الفيديو من $videoUrl: $e');
+          lastException = e is Exception ? e : Exception(e.toString());
+          _videoPlayerController?.dispose();
+          _videoPlayerController = null;
+          // استمرار المحاولة مع URL التالي
+          continue;
+        }
+      }
+
+      if (successfulUrl == null) {
+        throw lastException ?? Exception('فشل تحميل الفيديو من جميع المصادر المتاحة');
+      }
 
       if (!mounted) {
         _videoPlayerController?.dispose();
@@ -138,11 +188,51 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
       }
     } catch (e) {
+      debugPrint('❌ خطأ في تحميل الفيديو: $e');
+      debugPrint('📹 Base URL: $_baseVideoUrl');
+      debugPrint('🔗 Video URL: ${_useHls ? BunnyStorageService.getHlsPlaylistUrl(_baseVideoUrl) : BunnyStorageService.getVideoUrlWithQuality(_baseVideoUrl, '720p')}');
+      
+      String errorMessage = 'حدث خطأ أثناء تحميل الفيديو';
+      if (e.toString().contains('403') || e.toString().contains('Forbidden')) {
+        errorMessage = 'خطأ 403: الفيديو محمي أو غير متاح.\n\n'
+            '🔧 الحل من لوحة تحكم Bunny Stream:\n\n'
+            '1. اذهب إلى https://bunny.net/\n'
+            '2. Stream → Library (ID: 570093)\n'
+            '3. Settings → Security\n'
+            '4. ✅ فعّل "Enable Direct Play"\n'
+            '5. ✅ تأكد من أن "Token Authentication" معطل\n'
+            '6. ✅ تأكد من أن "Enable Token Authentication" معطل\n'
+            '7. افتح الفيديو الفردي وتأكد من "Visibility" = "Public"\n\n'
+            '📹 Video ID: ${_baseVideoUrl.split('/').last}\n'
+            '🔗 URL: $_baseVideoUrl';
+      } else if (e.toString().contains('404') || e.toString().contains('Not Found')) {
+        errorMessage = 'خطأ 404: الفيديو غير موجود.\n\n'
+            'التحقق:\n'
+            '1. تأكد من أن URL الفيديو صحيح\n'
+            '2. تأكد من أن الفيديو موجود في Bunny Stream\n'
+            '3. تحقق من CDN URL في الإعدادات';
+      } else if (e.toString().contains('MEDIA_ERR_SRC_NOT_SUPPORTED') || 
+                 e.toString().contains('Format error') ||
+                 e.toString().contains('unsuitable')) {
+        errorMessage = 'الفيديو غير جاهز أو غير مدعوم.\n\n'
+            'السبب المحتمل:\n'
+            '1. الفيديو قيد المعالجة في Bunny Stream\n'
+            '2. انتظر بضع دقائق ثم حاول مرة أخرى\n'
+            '3. تحقق من حالة الفيديو في Bunny Stream Dashboard\n\n'
+            '📹 Video ID: ${_baseVideoUrl.split('/').last}';
+      } else if (e.toString().contains('timeout') || e.toString().contains('Timeout')) {
+        errorMessage = 'انتهت مهلة الاتصال.\n\n'
+            'يرجى التحقق من:\n'
+            '1. اتصال الإنترنت\n'
+            '2. سرعة الاتصال\n'
+            '3. المحاولة مرة أخرى';
+      }
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
           _hasError = true;
-          _errorMessage = e.toString();
+          _errorMessage = errorMessage;
         });
       }
       // Cleanup on error

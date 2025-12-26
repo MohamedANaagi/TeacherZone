@@ -8,6 +8,7 @@ import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/admin/domain/usecases/add_code_usecase.dart';
 import '../../features/admin/domain/usecases/update_code_usecase.dart';
 import '../../features/admin/domain/usecases/add_course_usecase.dart';
+import '../../features/admin/domain/usecases/edit_course_usecase.dart';
 import '../../features/admin/domain/usecases/add_video_usecase.dart';
 import '../../features/tests/data/datasources/test_remote_datasource.dart';
 import '../../features/tests/data/repositories/test_repository_impl.dart';
@@ -50,6 +51,9 @@ class InjectionContainer {
 
   static AddCourseUseCase get addCourseUseCase =>
       AddCourseUseCase(adminRepository);
+
+  static EditCourseUseCase get editCourseUseCase =>
+      EditCourseUseCase(adminRepository);
 
   static AddVideoUseCase get addVideoUseCase =>
       AddVideoUseCase(adminRepository);

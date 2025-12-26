@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:html' as html if (dart.library.html) 'dart:html';
+import 'package:class_code/core/stubs/html_stub.dart' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/services/bunny_storage_service.dart';
@@ -72,26 +72,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ..accept = 'image/*'
             ..style.display = 'none';
 
-          html.document.body!.append(input);
+          html.document.body!.append(input as dynamic);
 
           final completer = Completer<html.File?>();
+          StreamSubscription? onChangeSubscription;
+          bool isCompleted = false;
 
-          input.onChange.listen((event) {
+          // ربط الـ listener قبل click
+          onChangeSubscription = input.onChange.listen((event) {
+            if (isCompleted) return; // تجنب الاستدعاء المتعدد
+            isCompleted = true;
+            
+            debugPrint('📝 onChange event triggered');
             final files = input.files;
             if (files != null && files.isNotEmpty) {
+              debugPrint('✅ ملف تم اختياره: ${files.first.name}');
               completer.complete(files.first);
             } else {
+              debugPrint('⚠️ لا توجد ملفات في input');
               completer.complete(null);
             }
-            input.remove();
+            
+            // تنظيف
+            onChangeSubscription?.cancel();
+            try {
+              input.remove();
+            } catch (e) {
+              debugPrint('⚠️ خطأ في إزالة input: $e');
+            }
           });
 
+          // إضافة delay صغير لضمان ربط الـ listener
+          await Future.delayed(const Duration(milliseconds: 50));
+
+          // فتح dialog اختيار الملف
+          debugPrint('🖱️ فتح dialog اختيار الملف...');
           input.click();
 
+          // انتظار اختيار المستخدم
+          debugPrint('⏳ انتظار اختيار المستخدم للملف...');
           final htmlFile = await completer.future.timeout(
             const Duration(seconds: 30),
             onTimeout: () {
-              input.remove();
+              debugPrint('⏰ انتهت مهلة انتظار اختيار الملف');
+              isCompleted = true;
+              onChangeSubscription?.cancel();
+              try {
+                input.remove();
+              } catch (e) {
+                debugPrint('⚠️ خطأ في إزالة input بعد timeout: $e');
+              }
               return null;
             },
           );

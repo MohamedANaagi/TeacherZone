@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -36,42 +37,68 @@ class BunnyStorageService {
   /// رفع فيديو إلى Bunny Stream
   ///
   /// [videoFile] - ملف الفيديو المراد رفعه (لـ iOS و Android)
-  /// [videoBytes] - bytes الفيديو (للويب)
+  /// [videoBytes] - bytes الفيديو (للويب - للملفات الصغيرة فقط)
+  /// [videoStream] - Stream للفيديو (للويب - للملفات الكبيرة)
+  /// [fileSize] - حجم الملف بالبايت (مطلوب عند استخدام Stream)
   /// [fileName] - اسم الملف (مطلوب)
+  /// [onProgress] - callback لتتبع التقدم (0.0 إلى 1.0)
   ///
   /// Returns URL الفيديو بعد الرفع
   /// Throws Exception في حالة فشل الرفع
   static Future<String> uploadVideo({
     File? videoFile,
     Uint8List? videoBytes,
+    Stream<List<int>>? videoStream,
+    int? fileSize,
     required String fileName,
+    void Function(double progress)? onProgress,
   }) async {
     try {
       if (fileName.isEmpty) {
         throw Exception('اسم الملف مطلوب');
       }
 
-      // قراءة محتوى الملف
-      Uint8List fileBytes;
+      // تحديد حجم الملف وطريقة القراءة
+      int? actualFileSize;
+      Stream<List<int>>? uploadStream;
+
       if (kIsWeb) {
-        // للويب: استخدام bytes مباشرة
-        if (videoBytes == null) {
-          throw Exception('يجب توفير videoBytes للويب');
+        // للويب: استخدام Stream إذا كان متوفراً (للملفات الكبيرة)
+        if (videoStream != null && fileSize != null) {
+          uploadStream = videoStream;
+          actualFileSize = fileSize;
+          if (kDebugMode) {
+            debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream (Stream Mode)');
+            debugPrint(
+              '📦 حجم الملف: ${(actualFileSize / 1024 / 1024).toStringAsFixed(2)} MB',
+            );
+          }
+        } else if (videoBytes != null) {
+          // للملفات الصغيرة: استخدام bytes مباشرة
+          actualFileSize = videoBytes.length;
+          uploadStream = Stream.value(videoBytes);
+          if (kDebugMode) {
+            debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream (Bytes Mode)');
+            debugPrint(
+              '📦 حجم الملف: ${(actualFileSize / 1024 / 1024).toStringAsFixed(2)} MB',
+            );
+          }
+        } else {
+          throw Exception('يجب توفير videoBytes أو videoStream للويب');
         }
-        fileBytes = videoBytes;
       } else {
-        // لـ iOS و Android: قراءة من File
+        // لـ iOS و Android: استخدام Stream من File
         if (videoFile == null) {
           throw Exception('يجب توفير videoFile لـ iOS و Android');
         }
-        fileBytes = await videoFile.readAsBytes();
-      }
-
-      if (kDebugMode) {
-        debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream');
-        debugPrint(
-          '📦 حجم الملف: ${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB',
-        );
+        actualFileSize = await videoFile.length();
+        uploadStream = videoFile.openRead();
+        if (kDebugMode) {
+          debugPrint('🚀 بدء رفع الفيديو إلى Bunny Stream (File Stream Mode)');
+          debugPrint(
+            '📦 حجم الملف: ${(actualFileSize / 1024 / 1024).toStringAsFixed(2)} MB',
+          );
+        }
       }
 
       // الخطوة 1: إنشاء فيديو جديد في Bunny Stream
@@ -149,37 +176,191 @@ class BunnyStorageService {
 
       if (kDebugMode) {
         debugPrint('📤 بدء رفع ملف الفيديو...');
-      }
-      if (kDebugMode) {
         debugPrint('🔗 Upload URL: [Uploading...]');
-      }
-      if (kDebugMode) {
         debugPrint(
-          '📦 حجم البيانات: ${(fileBytes.length / 1024 / 1024).toStringAsFixed(2)} MB',
+          '📦 حجم البيانات: ${(actualFileSize / 1024 / 1024).toStringAsFixed(2)} MB',
         );
       }
 
-      // للويب: استخدام timeout أطول للملفات الكبيرة
-      final uploadResponse = await http
-          .put(
-            Uri.parse(uploadUrl),
-            headers: {
-              'AccessKey': _streamApiKey,
-              'Content-Type': 'application/octet-stream',
-            },
-            body: fileBytes,
-          )
-          .timeout(
-            _httpTimeout,
-            onTimeout: () {
-              throw Exception(
-                'انتهت مهلة رفع الفيديو. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.',
-              );
-            },
+      // استخدام StreamedRequest للرفع المتدرج (للملفات الكبيرة)
+      final request = http.StreamedRequest('PUT', Uri.parse(uploadUrl));
+      request.headers.addAll({
+        'AccessKey': _streamApiKey,
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': actualFileSize.toString(),
+      });
+
+      // تتبع التقدم
+      int bytesSent = 0;
+      final totalSize = actualFileSize; // حفظ القيمة لتجنب مشاكل null
+      bool sinkClosed = false;
+      Exception? streamError;
+      StreamSubscription<List<int>>? streamSubscription;
+      double lastProgressSent =
+          -1.0; // لتتبع آخر قيمة تم إرسالها (ابدأ من -1 لضمان التحديث الأول)
+      int lastProgressPercent = -1; // لتتبع آخر نسبة مئوية تم إرسالها
+      const progressUpdateThreshold = 0.005; // تحديث كل 0.5% على الأقل
+
+      // تقسيم الـ stream إلى chunks صغيرة جداً لتجنب مشاكل الذاكرة في الويب
+      const maxChunkSize =
+          256 *
+          1024; // 256 KB كحد أقصى (حجم صغير جداً لتجنب Array buffer allocation)
+
+      // إنشاء Stream Transformer لتقسيم الـ chunks الكبيرة
+      final chunkedStream = uploadStream.expand<List<int>>((chunk) {
+        // إذا كان الـ chunk صغيراً، أرسله مباشرة
+        if (chunk.length <= maxChunkSize) {
+          return [chunk];
+        }
+
+        // تقسيم الـ chunk الكبير إلى أجزاء صغيرة
+        // استخدام طريقة لا تنسخ البيانات في الذاكرة
+        final chunks = <List<int>>[];
+        int offset = 0;
+        while (offset < chunk.length) {
+          final end = (offset + maxChunkSize < chunk.length)
+              ? offset + maxChunkSize
+              : chunk.length;
+
+          // إنشاء sublist - في الويب، هذا ينسخ البيانات لكن بحجم صغير (256 KB)
+          chunks.add(chunk.sublist(offset, end));
+          offset = end;
+        }
+        return chunks;
+      });
+
+      streamSubscription = chunkedStream.listen(
+        (chunk) {
+          try {
+            // التحقق من أن الـ sink لم يُغلق
+            if (sinkClosed) {
+              debugPrint('⚠️ تم إغلاق الـ sink، توقف إرسال البيانات');
+              streamSubscription?.cancel();
+              return;
+            }
+
+            // إرسال الـ chunk مباشرة (لأنه الآن صغير - 256 KB كحد أقصى)
+            try {
+              request.sink.add(chunk);
+              bytesSent += chunk.length;
+
+              // حساب النسبة المئوية وإرسالها عبر callback
+              // تحديث التقدم بشكل تدريجي
+              if (onProgress != null && totalSize > 0) {
+                final progress = bytesSent / totalSize;
+                // الحد الأقصى للتقدم هو 95% حتى نضمن اكتمال الرفع فعلياً
+                // سنرسل 100% فقط بعد استجابة السيرفر
+                final maxProgress = 0.95;
+                final clampedProgress = progress.clamp(0.0, maxProgress);
+                final currentPercent = (clampedProgress * 100).round();
+
+                // تحديث التقدم في الحالات التالية:
+                // 1. إذا تغير التقدم بنسبة 0.5% على الأقل
+                // 2. إذا تغيرت النسبة المئوية (1% على الأقل)
+                // 3. إذا وصلنا إلى 95% (الحد الأقصى قبل اكتمال الرفع)
+                final progressDiff = clampedProgress - lastProgressSent;
+                final shouldUpdate =
+                    progressDiff >= progressUpdateThreshold ||
+                    currentPercent != lastProgressPercent ||
+                    (bytesSent >= totalSize && clampedProgress >= maxProgress - 0.01);
+
+                if (shouldUpdate) {
+                  onProgress(clampedProgress);
+                  lastProgressSent = clampedProgress;
+                  lastProgressPercent = currentPercent;
+
+                  // طباعة التقدم عند كل تحديث
+                  if (kDebugMode) {
+                    debugPrint(
+                      '📤 التقدم: ${(clampedProgress * 100).toStringAsFixed(1)}% (${(bytesSent / 1024 / 1024).toStringAsFixed(2)} MB / ${(totalSize / 1024 / 1024).toStringAsFixed(2)} MB)',
+                    );
+                  }
+                }
+              }
+            } catch (e) {
+              sinkClosed = true;
+              streamError = Exception('خطأ في إرسال chunk: $e');
+              debugPrint('❌ خطأ في إرسال chunk: $e');
+              streamSubscription?.cancel();
+            }
+          } catch (e, stackTrace) {
+            sinkClosed = true;
+            streamError = Exception('خطأ في معالجة chunk: $e');
+            debugPrint('❌ خطأ في معالجة chunk: $e');
+            debugPrint('Stack trace: $stackTrace');
+            streamSubscription?.cancel();
+            try {
+              request.sink.close();
+            } catch (_) {
+              // تجاهل الأخطاء عند إغلاق الـ sink
+            }
+          }
+        },
+        onDone: () {
+          try {
+            if (!sinkClosed) {
+              request.sink.close();
+            }
+            // لا نرسل 100% هنا - سننتظر استجابة السيرفر أولاً
+            // سيتم إرسال 100% بعد نجاح الرفع
+          } catch (e) {
+            debugPrint('❌ خطأ في إغلاق الـ sink: $e');
+          }
+        },
+        onError: (error) {
+          sinkClosed = true;
+          streamError = Exception('خطأ في Stream: $error');
+          debugPrint('❌ خطأ في Stream: $error');
+          streamSubscription?.cancel();
+          try {
+            request.sink.close();
+          } catch (e) {
+            debugPrint('❌ خطأ في إغلاق الـ sink بعد الخطأ: $e');
+          }
+        },
+        cancelOnError: true,
+      );
+
+      // التحقق من وجود خطأ في Stream قبل الإرسال
+      if (streamError != null) {
+        throw streamError!;
+      }
+
+      // إرسال الطلب مع timeout أطول للملفات الكبيرة
+      final streamedResponse = await request.send().timeout(
+        _httpTimeout,
+        onTimeout: () {
+          sinkClosed = true;
+          try {
+            request.sink.close();
+          } catch (_) {
+            // تجاهل الأخطاء عند إغلاق الـ sink
+          }
+          throw Exception(
+            'انتهت مهلة رفع الفيديو. الملف كبير جداً أو اتصال الإنترنت بطيء. يرجى المحاولة مرة أخرى.',
           );
+        },
+      );
+
+      // التحقق من وجود خطأ في Stream بعد الإرسال
+      if (streamError != null) {
+        throw streamError!;
+      }
+
+      // قراءة الاستجابة
+      final uploadResponse = await http.Response.fromStream(streamedResponse);
 
       if (uploadResponse.statusCode == 200 ||
           uploadResponse.statusCode == 201) {
+        // إرسال 100% فقط بعد نجاح الرفع على السيرفر
+        if (onProgress != null) {
+          // إرسال 99% أولاً كإشارة إلى اكتمال الإرسال
+          onProgress(0.99);
+          // ثم إرسال 100% بعد تأكيد النجاح
+          await Future.delayed(const Duration(milliseconds: 100));
+          onProgress(1.0);
+        }
+
         // بناء Stream URL للفيديو (بدون جودة محددة - سيتم تحديدها في المشغل)
         // نرجع base URL بدون جودة، وسيتم إضافة الجودة في مشغل الفيديو
         final videoUrl = '$_streamCdnUrl/$videoId';
@@ -465,5 +646,75 @@ class BunnyStorageService {
       cleanUrl = cleanUrl.replaceAll(qualityPattern, '');
     }
     return '$cleanUrl/playlist.m3u8';
+  }
+
+  /// الحصول على معلومات الفيديو من Bunny Stream API
+  /// يمكن استخدامها للتحقق من حالة الفيديو والحصول على URL صحيح
+  ///
+  /// [videoId] - ID الفيديو (guid)
+  ///
+  /// Returns معلومات الفيديو من API
+  static Future<Map<String, dynamic>?> getVideoInfo(String videoId) async {
+    try {
+      // استخراج videoId من URL إذا كان URL كامل
+      String actualVideoId = videoId;
+      if (videoId.contains('/')) {
+        final uri = Uri.parse(videoId);
+        final pathParts = uri.path.split('/');
+        if (pathParts.isNotEmpty) {
+          // الحصول على آخر جزء من المسار (videoId)
+          actualVideoId = pathParts.last;
+        }
+      }
+
+      final getVideoUrl =
+          '$_streamBaseUrl/library/$_streamLibraryId/videos/$actualVideoId';
+
+      final response = await http.get(
+        Uri.parse(getVideoUrl),
+        headers: {'AccessKey': _streamApiKey},
+      );
+
+      if (response.statusCode == 200) {
+        final videoData = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('✅ تم جلب معلومات الفيديو بنجاح');
+        return videoData;
+      } else {
+        debugPrint('❌ فشل جلب معلومات الفيديو: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب معلومات الفيديو: $e');
+      return null;
+    }
+  }
+
+  /// التحقق من أن الفيديو جاهز للتشغيل في Bunny Stream
+  ///
+  /// [videoId] - ID الفيديو (guid أو URL كامل)
+  ///
+  /// Returns true إذا كان الفيديو جاهزاً (encoded)، false إذا لم يكن جاهزاً بعد
+  static Future<bool> isVideoReady(String videoId) async {
+    try {
+      final videoInfo = await getVideoInfo(videoId);
+      if (videoInfo == null) {
+        return false;
+      }
+
+      // التحقق من حالة الفيديو
+      // في Bunny Stream، الحالات المحتملة:
+      // 0 = Created, 1 = Uploading, 2 = Processing, 3 = Finished, 4 = Error, 5 = QuotaExceeded
+      final status = videoInfo['status'] as int?;
+      final isReady = status == 3; // Finished
+
+      if (kDebugMode) {
+        debugPrint('📹 حالة الفيديو: $status (${isReady ? "جاهز" : "غير جاهز بعد"})');
+      }
+
+      return isReady;
+    } catch (e) {
+      debugPrint('❌ خطأ في التحقق من جاهزية الفيديو: $e');
+      return false;
+    }
   }
 }

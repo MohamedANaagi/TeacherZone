@@ -101,12 +101,21 @@ class CoursesCubit extends Cubit<CoursesState> {
 
         // حساب نسبة التقدم
         if (totalVideos > 0) {
-          progress = ((watchedVideos.length / totalVideos) * 100).round();
+          // الحد الأقصى للتقدم هو 100%
+          final calculatedProgress = (watchedVideos.length / totalVideos) * 100;
+          progress = calculatedProgress.round().clamp(0, 100);
         }
         
         debugPrint(
           'تم حساب التقدم للكورس ${course.id}: $progress% (${watchedVideos.length}/$totalVideos)',
         );
+        
+        // تحذير إذا كان التقدم أكثر من 100%
+        if (watchedVideos.length > totalVideos) {
+          debugPrint(
+            '⚠️ تحذير: عدد الفيديوهات المشاهدة (${watchedVideos.length}) أكبر من إجمالي الفيديوهات ($totalVideos)',
+          );
+        }
       } catch (e) {
         debugPrint('خطأ في حساب التقدم للكورس ${course.id}: $e');
         progress = 0;
