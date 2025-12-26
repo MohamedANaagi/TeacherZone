@@ -1,11 +1,8 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
-// للويب فقط - استخدام HTML File API مباشرة
-import 'package:class_code/core/stubs/html_stub.dart' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
@@ -106,176 +103,48 @@ class _AdminManageQuestionsScreenState
   }
 
   /// اختيار صورة للسؤال
+  /// يستخدم FilePicker لجميع المنصات (مثل اختيار الفيديو)
   Future<void> _pickImage() async {
     if (!mounted) return;
-
+    
     try {
       debugPrint('🖼️ بدء اختيار صورة...');
+      
+      // استخدام file_picker لجميع المنصات (مثل اختيار الفيديو)
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        allowedExtensions: null,
+      );
 
-      // للويب: استخدام HTML File API مباشرة لتجنب مشاكل file_picker
+      if (!mounted) return;
+
+      if (result == null || result.files.isEmpty) {
+        debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
+        return;
+      }
+
+      final selectedFile = result.files.first;
+      debugPrint('📁 الملف المختار: ${selectedFile.name}');
+      debugPrint('📦 حجم الملف: ${selectedFile.size} bytes');
+      
       if (kIsWeb) {
-        debugPrint('🌐 استخدام HTML File API للويب...');
-        
-        // إنشاء input element مخفي
-        final input = html.FileUploadInputElement()
-          ..accept = 'image/*'
-          ..style.display = 'none';
-        
-        html.document.body!.append(input as dynamic);
-        
-        // انتظار اختيار المستخدم للملف
-        final completer = Completer<html.File?>();
-        StreamSubscription? onChangeSubscription;
-        bool isCompleted = false;
-        
-        // ربط الـ listener قبل click
-        onChangeSubscription = input.onChange.listen((event) {
-          if (isCompleted) return; // تجنب الاستدعاء المتعدد
-          isCompleted = true;
-          
-          debugPrint('📝 onChange event triggered');
-          final files = input.files;
-          if (files != null && files.isNotEmpty) {
-            debugPrint('✅ ملف تم اختياره: ${files.first.name}');
-            completer.complete(files.first);
-          } else {
-            debugPrint('⚠️ لا توجد ملفات في input');
-            completer.complete(null);
-          }
-          
-          // تنظيف
-          onChangeSubscription?.cancel();
-          try {
-            input.remove();
-          } catch (e) {
-            debugPrint('⚠️ خطأ في إزالة input: $e');
-          }
-        });
-        
-        // إضافة delay صغير لضمان ربط الـ listener
-        await Future.delayed(const Duration(milliseconds: 50));
-        
-        // فتح dialog اختيار الملف
-        debugPrint('🖱️ فتح dialog اختيار الملف...');
-        input.click();
-        
-        // انتظار اختيار المستخدم
-        debugPrint('⏳ انتظار اختيار المستخدم للملف...');
-        final htmlFile = await completer.future.timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            debugPrint('⏰ انتهت مهلة انتظار اختيار الملف');
-            isCompleted = true;
-            onChangeSubscription?.cancel();
-            try {
-              input.remove();
-            } catch (e) {
-              debugPrint('⚠️ خطأ في إزالة input بعد timeout: $e');
-            }
-            return null;
-          },
-        );
-        
-        if (!mounted) return;
-        
-        if (htmlFile == null) {
-          debugPrint('ℹ️ المستخدم ألغى اختيار الملف');
-          return;
-        }
-        
-        debugPrint('📁 الملف المختار: ${htmlFile.name}');
-        debugPrint('📦 حجم الملف: ${htmlFile.size} bytes');
-        
-        // قراءة الملف باستخدام FileReader
-        final reader = html.FileReader();
-        final bytesCompleter = Completer<Uint8List>();
-        
-        // استخدام onLoad بدلاً من onLoadEnd لتجنب مشاكل التوقيت
-        reader.onLoad.listen((_) {
-          try {
-            // قراءة ArrayBuffer وتحويله إلى Uint8List
-            final result = reader.result;
-            
-            if (result == null) {
-              bytesCompleter.completeError(Exception('فشل قراءة الملف: النتيجة فارغة'));
-              return;
-            }
-            
-            Uint8List bytes;
-            
-            // في dart:html، readAsArrayBuffer يعيد ByteBuffer مباشرة
-            // لكن في release build قد يكون هناك اختلاف
-            try {
-              // محاولة قراءة كـ ByteBuffer (الطريقة الأساسية)
-              if (result is ByteBuffer) {
-                bytes = result.asUint8List();
-                debugPrint('✅ تم قراءة الملف كـ ByteBuffer (${bytes.length} bytes)');
-              } else {
-                // محاولة تحويل مباشرة
-                final buffer = result as ByteBuffer;
-                bytes = buffer.asUint8List();
-                debugPrint('✅ تم قراءة الملف بعد التحويل (${bytes.length} bytes)');
-              }
-            } catch (e) {
-              // إذا فشل، جرب طرق أخرى
-              debugPrint('⚠️ محاولة طريقة بديلة لقراءة الملف...');
-              debugPrint('   نوع النتيجة: ${result.runtimeType}');
-              
-              if (result is TypedData) {
-                bytes = Uint8List.view(result.buffer);
-                debugPrint('✅ تم قراءة الملف كـ TypedData (${bytes.length} bytes)');
-              } else if (result is List) {
-                bytes = Uint8List.fromList(result.cast<int>());
-                debugPrint('✅ تم قراءة الملف كـ List (${bytes.length} bytes)');
-              } else {
-                debugPrint('❌ نوع غير معروف: ${result.runtimeType}');
-                bytesCompleter.completeError(Exception('نوع غير معروف للنتيجة: ${result.runtimeType}'));
-                return;
-              }
-            }
-            
-            bytesCompleter.complete(bytes);
-          } catch (e, stackTrace) {
-            debugPrint('❌ خطأ في قراءة الملف: $e');
-            debugPrint('📚 Stack trace: $stackTrace');
-            bytesCompleter.completeError(Exception('فشل قراءة الملف: $e'));
-          }
-        });
-        
-        reader.onError.listen((error) {
-          debugPrint('❌ خطأ في FileReader: $error');
-          bytesCompleter.completeError(Exception('خطأ في FileReader: $error'));
-        });
-        
-        // قراءة الملف كـ ArrayBuffer
-        reader.readAsArrayBuffer(htmlFile);
-        
-        final fileBytes = await bytesCompleter.future;
-        
-        debugPrint('✅ تم قراءة الملف بنجاح (${fileBytes.length} bytes)');
-        
-        // إنشاء PlatformFile مع bytes
-        final platformFile = PlatformFile(
-          name: htmlFile.name,
-          size: htmlFile.size.toInt(),
-          bytes: fileBytes,
-          path: null,
-          readStream: null,
-        );
-        
+        // للويب: استخدام PlatformFile مباشرة (يحتوي على bytes)
         if (mounted) {
           setState(() {
             _selectedImageFile = null;
-            _selectedPlatformFile = platformFile;
             _uploadedImageUrl = null;
+            _selectedPlatformFile = selectedFile;
           });
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم اختيار الصورة: ${htmlFile.name}'),
+              content: Text('تم اختيار الصورة: ${selectedFile.name}'),
               backgroundColor: AppColors.successColor,
             ),
           );
-          debugPrint('✅ تم حفظ PlatformFile بنجاح');
+          
+          debugPrint('✅ تم حفظ PlatformFile للويب بنجاح');
         }
       } else {
         // للـ iOS و Android: استخدام file_picker
