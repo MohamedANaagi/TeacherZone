@@ -6,7 +6,6 @@ import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
-import '../../../../../core/services/image_storage_service.dart';
 import '../../../../../core/services/video_progress_service.dart';
 import '../../data/models/code_model.dart';
 import '../widgets/admin_app_bar.dart';
@@ -235,13 +234,10 @@ class _AdminAddCodeScreenState extends State<AdminAddCodeScreen> {
     }
   }
 
-  /// حذف جميع بيانات الكود (الكود، الصورة، حالات المشاهدة)
+  /// حذف جميع بيانات الكود (الكود، حالات المشاهدة)
+  /// ملاحظة: الصور الآن على Bunny Storage وليس محلياً
   Future<void> _deleteCodeData(String code) async {
     try {
-      // حذف الصورة المحلية
-      await ImageStorageService.deleteProfileImage(code: code);
-      debugPrint('تم حذف الصورة للكود: $code');
-
       // حذف حالات مشاهدة الفيديوهات
       await VideoProgressService.clearVideoProgressForCode(code: code);
       debugPrint('تم حذف حالات المشاهدة للكود: $code');

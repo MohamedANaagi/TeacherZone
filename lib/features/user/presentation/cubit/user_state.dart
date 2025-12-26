@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 class UserState extends Equatable {
   final String? name;
   final String? phone;
-  final String? imagePath; // رابط الصورة من Firebase Storage (URL)
+  final String? imagePath; // رابط الصورة من Bunny Storage (URL)
   final String? code; // كود المستخدم
   final String? adminCode; // كود الأدمن المرتبط بهذا المستخدم
   final String? adminName; // اسم الأدمن

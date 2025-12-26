@@ -20,6 +20,7 @@ abstract class AdminRemoteDataSource {
   Future<List<CodeModel>> getCodes({String? adminCode});
   Future<void> deleteCode(String codeId);
   Future<void> updateCode(CodeModel code);
+  Future<void> updateCodeImageUrl(String code, String imageUrl); // تحديث صورة الطالب
   Future<bool> validateCode(String code);
   Future<CodeModel?> getCodeByCode(String code);
 
@@ -224,6 +225,29 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       await firestore.collection('codes').doc(code.id).update(data);
     } catch (e) {
       throw ServerException('فشل تحديث الكود: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> updateCodeImageUrl(String code, String imageUrl) async {
+    try {
+      final snapshot = await firestore
+          .collection('codes')
+          .where('code', isEqualTo: code.trim())
+          .limit(1)
+          .get(const GetOptions(source: Source.server));
+
+      if (snapshot.docs.isEmpty) {
+        throw ServerException('الكود غير موجود');
+      }
+
+      final codeDoc = snapshot.docs.first;
+      await codeDoc.reference.update({'profileImageUrl': imageUrl});
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('فشل تحديث صورة الطالب: ${e.toString()}');
     }
   }
 

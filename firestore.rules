@@ -107,10 +107,14 @@ service cloud.firestore {
                        // التأكد من وجود adminCode
                        request.resource.data.adminCode is string &&
                        request.resource.data.adminCode.size() > 0;
-      allow update: if isValidCode(request.resource.data) &&
+      allow update: if (isValidCode(request.resource.data) &&
                        // التأكد من وجود adminCode
                        request.resource.data.adminCode is string &&
-                       request.resource.data.adminCode.size() > 0;
+                       request.resource.data.adminCode.size() > 0) ||
+                       // السماح بتحديث profileImageUrl فقط (لرفع صورة الطالب)
+                       (request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['profileImageUrl']) &&
+                        request.resource.data.profileImageUrl is string);
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }
 

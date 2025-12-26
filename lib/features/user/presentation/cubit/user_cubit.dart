@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/services/image_storage_service.dart';
 import 'user_state.dart';
 
 class UserCubit extends Cubit<UserState> {
@@ -63,7 +62,7 @@ class UserCubit extends Cubit<UserState> {
         await prefs.remove('user_phone');
       }
 
-      // حفظ أو مسح مسار الصورة (مسار محلي في الجهاز)
+      // حفظ أو مسح رابط الصورة من Bunny Storage (URL)
       if (state.imagePath != null) {
         await prefs.setString('user_image_path', state.imagePath!);
       } else {
@@ -149,15 +148,9 @@ class UserCubit extends Cubit<UserState> {
 
       debugPrint('تحميل بيانات المستخدم - isLoggedIn: $isLoggedIn');
 
-      // محاولة تحميل الصورة المحفوظة بناءً على الكود
-      String? imagePath;
-      if (code != null && code.isNotEmpty) {
-        imagePath = await ImageStorageService.getProfileImagePath(code: code);
-        // إذا لم توجد صورة محفوظة، استخدم المسار من SharedPreferences (للتوافق مع البيانات القديمة)
-        imagePath ??= prefs.getString('user_image_path');
-      } else {
-        imagePath = prefs.getString('user_image_path');
-      }
+      // تحميل رابط الصورة من Bunny Storage (URL) من SharedPreferences
+      // imagePath الآن يحتوي على URL من Bunny Storage وليس مسار محلي
+      final imagePath = prefs.getString('user_image_path');
 
       DateTime? subscriptionEndDate;
       if (subscriptionDateString != null) {
@@ -193,7 +186,7 @@ class UserCubit extends Cubit<UserState> {
   Future<void> clearUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // حذف بيانات المستخدم فقط (وليس حالات المشاهدة أو الصور)
       await prefs.remove('user_name');
       await prefs.remove('user_phone');
@@ -205,7 +198,7 @@ class UserCubit extends Cubit<UserState> {
       await prefs.remove('admin_description');
       await prefs.remove('subscription_end_date');
       await prefs.setBool('is_logged_in', false);
-      
+
       // ملاحظة: لا نحذف الصورة المحلية - تبقى محفوظة بناءً على الكود
       // ملاحظة: لا نحذف حالات المشاهدة - تبقى محفوظة بناءً على الكود
       // حتى لو سجل المستخدم خروج، الصورة وحالات المشاهدة تبقى للكود

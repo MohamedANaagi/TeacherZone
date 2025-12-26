@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../../core/styling/app_color.dart';
 
 /// Widget لعرض صورة المستخدم مع إمكانية التعديل
@@ -40,7 +41,7 @@ class ProfileAvatar extends StatelessWidget {
             ),
             child: ClipOval(
               child: imagePath != null && imagePath!.isNotEmpty
-                  ? _buildLocalImage(imagePath!)
+                  ? _buildImage(imagePath!)
                   : _buildDefaultAvatar(),
             ),
           ),
@@ -68,15 +69,38 @@ class ProfileAvatar extends StatelessWidget {
     );
   }
 
-  /// بناء الصورة من المسار المحلي
-  Widget _buildLocalImage(String imagePath) {
-    return Image.file(
-      File(imagePath),
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return _buildDefaultAvatar();
-      },
-    );
+  /// بناء الصورة من URL أو المسار المحلي
+  Widget _buildImage(String imagePath) {
+    // التحقق من أن imagePath هو URL (يبدأ بـ http أو https)
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildDefaultAvatar();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+      );
+    } else {
+      // مسار محلي
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildDefaultAvatar();
+        },
+      );
+    }
   }
 
   /// بناء الصورة الافتراضية عند عدم وجود صورة للمستخدم

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
 import '../../../user/presentation/cubit/user_state.dart';
@@ -71,21 +72,48 @@ class _UserAvatar extends StatelessWidget {
       ),
       child: ClipOval(
         child: imagePath != null && imagePath!.isNotEmpty
-            ? _buildLocalImage(imagePath!)
+            ? _buildImage(imagePath!)
             : _DefaultAvatar(),
       ),
     );
   }
 
-  /// بناء الصورة من المسار المحلي
-  Widget _buildLocalImage(String imagePath) {
-    return Image.file(
-      File(imagePath),
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
+  /// بناء الصورة من URL أو المسار المحلي
+  Widget _buildImage(String imagePath) {
+    // التحقق من أن imagePath هو URL (يبدأ بـ http أو https)
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _DefaultAvatar();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+      );
+    } else {
+      // مسار محلي (للموبايل فقط)
+      if (kIsWeb) {
+        // على الويب، إذا لم يكن URL، نعرض الصورة الافتراضية
         return _DefaultAvatar();
-      },
-    );
+      }
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _DefaultAvatar();
+        },
+      );
+    }
   }
 }
 

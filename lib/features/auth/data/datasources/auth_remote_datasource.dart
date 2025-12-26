@@ -3,7 +3,6 @@ import 'package:class_code/features/admin/data/models/code_model.dart';
 
 import '../models/user_model.dart';
 import '../../../../core/errors/exceptions.dart';
-import '../../../../core/services/image_storage_service.dart';
 import '../../../../core/services/video_progress_service.dart';
 import '../../../../core/services/device_service.dart';
 import 'package:flutter/foundation.dart';
@@ -58,13 +57,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (codeModel.subscriptionEndDate != null) {
         final now = DateTime.now();
         if (now.isAfter(codeModel.subscriptionEndDate!)) {
-          // حذف جميع بيانات الكود (الصورة، حالات المشاهدة)
+          // حذف بيانات تقدم الفيديوهات (الصور الآن على Bunny Storage وليس محلياً)
           try {
-            await ImageStorageService.deleteProfileImage(code: code);
             await VideoProgressService.clearVideoProgressForCode(code: code);
-            debugPrint('تم حذف بيانات الكود المنتهي: $code');
+            debugPrint('تم حذف بيانات تقدم الفيديوهات للكود المنتهي: $code');
           } catch (e) {
-            debugPrint('خطأ في حذف بيانات الكود المنتهي $code: $e');
+            debugPrint('خطأ في حذف بيانات تقدم الفيديوهات للكود المنتهي $code: $e');
           }
 
           // حذف الكود من Firestore

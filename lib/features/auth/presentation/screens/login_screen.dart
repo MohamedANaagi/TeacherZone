@@ -8,7 +8,6 @@ import '../../../../../core/styling/app_styles.dart';
 import '../../../../../core/router/app_routers.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../../core/errors/exceptions.dart';
-import '../../../../../core/services/image_storage_service.dart';
 import '../widgets/custom_code_field.dart';
 import '../widgets/login_app_logo.dart';
 import '../widgets/login_app_title.dart';
@@ -153,21 +152,18 @@ class _CodeInputScreenState extends State<CodeInputScreen>
       // استدعاء LoginUseCase لتسجيل الدخول
       final user = await InjectionContainer.loginUseCase(code: code);
 
-      // محاولة تحميل الصورة المحفوظة محلياً بناءً على الكود
-      String? profileImagePath;
+      // جلب CodeModel للحصول على profileImageUrl من Bunny Storage
+      String? profileImageUrl;
       try {
-        debugPrint('محاولة تحميل الصورة للكود: $code');
-        profileImagePath = await ImageStorageService.getProfileImagePath(
-          code: code,
+        final codeModel = await InjectionContainer.adminRepo.getCodeByCode(
+          code,
         );
-        if (profileImagePath != null) {
-          debugPrint('تم العثور على الصورة: $profileImagePath');
-        } else {
-          debugPrint('لم يتم العثور على صورة للكود: $code');
+        profileImageUrl = codeModel?.profileImageUrl;
+        if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
+          debugPrint('تم العثور على صورة من Bunny Storage: $profileImageUrl');
         }
       } catch (e) {
-        // تجاهل الأخطاء عند جلب الصورة المحلية
-        debugPrint('خطأ في جلب الصورة المحلية: $e');
+        debugPrint('⚠️ خطأ في جلب profileImageUrl: $e');
       }
 
       // جلب adminCode من الكود
@@ -189,7 +185,7 @@ class _CodeInputScreenState extends State<CodeInputScreen>
           phone: user.phone,
           code: code,
           adminCode: adminCode,
-          imagePath: profileImagePath,
+          imagePath: profileImageUrl, // URL من Bunny Storage
           subscriptionEndDate: user.subscriptionEndDate,
           isLoggedIn: true,
         );

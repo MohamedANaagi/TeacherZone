@@ -1,11 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:html' as html if (dart.library.html) 'dart:html';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
-import '../../../../../core/services/image_storage_service.dart';
+import '../../../../../core/services/bunny_storage_service.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../../user/presentation/cubit/user_cubit.dart';
@@ -27,14 +31,16 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   /// ImagePicker instance لاختيار الصور
   final ImagePicker _imagePicker = ImagePicker();
+  bool _isUploadingImage = false;
 
-  /// اختيار صورة من المعرض وحفظها محلياً في الجهاز
+  /// اختيار صورة ورفعها إلى Bunny Storage
   ///
   /// الخطوات:
-  /// 1. فتح معرض الصور باستخدام ImagePicker
-  /// 2. حفظ الصورة محلياً في مجلد التطبيق بناءً على الكود
-  /// 3. تحديث imagePath في UserCubit بمسار الصورة المحلي
-  /// 4. في حالة حدوث خطأ، عرض رسالة خطأ للمستخدم
+  /// 1. فتح معرض الصور
+  /// 2. رفع الصورة إلى Bunny Storage
+  /// 3. تحديث profileImageUrl في Firestore
+  /// 4. تحديث imagePath في UserCubit برابط الصورة من Bunny Storage
+  /// 5. في حالة حدوث خطأ، عرض رسالة خطأ للمستخدم
   Future<void> _pickImage() async {
     try {
       final userCubit = context.read<UserCubit>();
@@ -44,7 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('لا يمكن حفظ الصورة: الكود غير موجود'),
+              content: Text('لا يمكن رفع الصورة: الكود غير موجود'),
               backgroundColor: Colors.red,
             ),
           );
@@ -52,52 +58,168 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 85,
-      );
+      try {
+        setState(() {
+          _isUploadingImage = true;
+        });
 
-      if (image != null && mounted) {
-        try {
-          // حفظ الصورة محلياً بناءً على الكود
-          final savedPath = await ImageStorageService.saveProfileImage(
-            sourcePath: image.path,
-            code: userCode,
+        Uint8List? imageBytes;
+        String fileName;
+
+        if (kIsWeb) {
+          // للويب: استخدام HTML File API
+          final input = html.FileUploadInputElement()
+            ..accept = 'image/*'
+            ..style.display = 'none';
+
+          html.document.body!.append(input);
+
+          final completer = Completer<html.File?>();
+
+          input.onChange.listen((event) {
+            final files = input.files;
+            if (files != null && files.isNotEmpty) {
+              completer.complete(files.first);
+            } else {
+              completer.complete(null);
+            }
+            input.remove();
+          });
+
+          input.click();
+
+          final htmlFile = await completer.future.timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              input.remove();
+              return null;
+            },
           );
 
-          // تحديث مسار الصورة في UserCubit
-          await userCubit.updateUser(imagePath: savedPath);
+          if (!mounted) return;
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم حفظ الصورة بنجاح'),
-                backgroundColor: Colors.green,
-              ),
-            );
+          if (htmlFile == null) {
+            setState(() {
+              _isUploadingImage = false;
+            });
+            return;
           }
-        } catch (saveError) {
-          if (mounted) {
-            // استخراج رسالة الخطأ
-            String errorMessage = 'فشل حفظ الصورة';
-            if (saveError is Exception) {
-              errorMessage = saveError.toString().replaceFirst('Exception: ', '');
-            } else {
-              errorMessage = saveError.toString();
+
+          // إنشاء اسم ملف فريد في مجلد students
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final originalExtension = htmlFile.name.split('.').last.toLowerCase();
+          final extension = originalExtension.isEmpty ? 'jpg' : originalExtension;
+          final cleanCode = userCode.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+          fileName = 'students/student_${cleanCode}_$timestamp.$extension';
+
+          final reader = html.FileReader();
+          final bytesCompleter = Completer<Uint8List>();
+
+          reader.onLoad.listen((_) {
+            try {
+              final result = reader.result;
+              if (result == null) {
+                bytesCompleter.completeError(Exception('فشل قراءة الملف'));
+                return;
+              }
+
+              Uint8List bytes;
+              if (result is ByteBuffer) {
+                bytes = result.asUint8List();
+              } else if (result is TypedData) {
+                bytes = Uint8List.view(result.buffer);
+              } else if (result is List<int>) {
+                bytes = Uint8List.fromList(result);
+              } else {
+                final arrayBuffer = result as dynamic;
+                bytes = Uint8List.view(arrayBuffer);
+              }
+              bytesCompleter.complete(bytes);
+            } catch (e) {
+              bytesCompleter.completeError(Exception('فشل قراءة الملف: $e'));
             }
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
-              ),
-            );
+          });
+
+          reader.onError.listen((error) {
+            bytesCompleter.completeError(error);
+          });
+
+          reader.readAsArrayBuffer(htmlFile);
+          imageBytes = await bytesCompleter.future;
+        } else {
+          // للـ iOS و Android: استخدام image_picker
+          final XFile? image = await _imagePicker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 800,
+            maxHeight: 800,
+            imageQuality: 85,
+          );
+
+          if (!mounted) return;
+
+          if (image == null) {
+            setState(() {
+              _isUploadingImage = false;
+            });
+            return;
           }
-          
-          debugPrint('خطأ حفظ الصورة: $saveError');
+
+          final file = File(image.path);
+          if (await file.exists()) {
+            imageBytes = await file.readAsBytes();
+            // إنشاء اسم ملف فريد في مجلد students
+            final timestamp = DateTime.now().millisecondsSinceEpoch;
+            final extension = image.path.split('.').last.toLowerCase();
+            final cleanCode = userCode.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+            fileName = 'students/student_${cleanCode}_$timestamp.$extension';
+          } else {
+            setState(() {
+              _isUploadingImage = false;
+            });
+            return;
+          }
+        }
+
+        // رفع الصورة إلى Bunny Storage
+        final imageUrl = await BunnyStorageService.uploadImage(
+          imageBytes: imageBytes,
+          fileName: fileName,
+        );
+
+        // تحديث Firestore
+        await InjectionContainer.adminRepo.updateCodeImageUrl(
+          userCode,
+          imageUrl,
+        );
+
+        // تحديث UserCubit
+        await userCubit.updateUser(imagePath: imageUrl);
+
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم رفع الصورة بنجاح'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('خطأ في رفع صورة الطالب: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('فشل رفع الصورة: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isUploadingImage = false;
+          });
         }
       }
     } catch (e) {
@@ -177,7 +299,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
 
                 // صورة المستخدم
-                ProfileAvatar(imagePath: state.imagePath, onTap: _pickImage),
+                Stack(
+                  children: [
+                    ProfileAvatar(imagePath: state.imagePath, onTap: _pickImage),
+                    if (_isUploadingImage)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withOpacity(0.5),
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
 
                 const SizedBox(height: 32),
 

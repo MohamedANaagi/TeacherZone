@@ -16,6 +16,7 @@ abstract class AdminRepository {
   Future<List<CodeModel>> getCodes({String? adminCode});
   Future<void> deleteCode(String codeId);
   Future<void> updateCode(CodeModel code);
+  Future<void> updateCodeImageUrl(String code, String imageUrl); // تحديث صورة الطالب
   Future<bool> validateCode(String code);
   Future<CodeModel?> getCodeByCode(String code);
 
