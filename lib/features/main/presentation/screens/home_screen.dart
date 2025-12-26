@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/styling/app_color.dart';
 import '../../../../../core/styling/app_styles.dart';
+import '../../../../../core/router/app_routers.dart';
 import '../../../../../core/services/video_progress_service.dart';
 import '../../../user/presentation/cubit/user_cubit.dart';
 import '../../../user/presentation/cubit/user_state.dart';
@@ -205,6 +207,77 @@ class _HomeScreenState extends State<HomeScreen> {
             description: feature['description'] as String,
           );
         }).toList(),
+        const SizedBox(height: 16),
+        // بطاقة الدروس المباشرة
+        GestureDetector(
+          onTap: () {
+            context.push(AppRouters.liveLessonsScreen);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primaryColor,
+                  AppColors.primaryLight,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryColor.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.video_call,
+                    color: AppColors.secondaryColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الدروس المباشرة',
+                        style: AppStyles.subHeadingStyle.copyWith(
+                          color: AppColors.secondaryColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'انضم للدروس المباشرة الآن',
+                        style: AppStyles.textSecondaryStyle.copyWith(
+                          color: AppColors.secondaryColor.withOpacity(0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_back_ios,
+                  color: AppColors.secondaryColor,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

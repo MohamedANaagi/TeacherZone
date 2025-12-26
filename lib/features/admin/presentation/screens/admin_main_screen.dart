@@ -105,6 +105,19 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               context.push(AppRouters.adminAddTestScreen);
             },
           ),
+          const SizedBox(height: 16),
+
+          // بطاقة إدارة الدروس المباشرة
+          _buildAdminCard(
+            context: context,
+            title: 'إدارة الدروس المباشرة',
+            description: 'إضافة دروس مباشرة أونلاين',
+            icon: Icons.video_call,
+            color: AppColors.primaryColor,
+            onTap: () {
+              context.push(AppRouters.adminAddLiveLessonScreen);
+            },
+          ),
         ],
       ),
     );

@@ -14,6 +14,8 @@ import '../../features/admin/presentation/screens/admin_add_code_screen.dart';
 import '../../features/admin/presentation/screens/admin_add_course_screen.dart';
 import '../../features/admin/presentation/screens/admin_manage_videos_screen.dart';
 import '../../features/tests/presentation/screens/admin_add_test_screen.dart';
+import '../../features/live_lessons/presentation/screens/admin_add_live_lesson_screen.dart';
+import '../../features/live_lessons/presentation/screens/live_lessons_screen.dart';
 import 'app_routers.dart';
 
 class RouterGenerator {
@@ -130,6 +132,20 @@ class RouterGenerator {
         name: AppRouters.adminAddTestScreen,
         builder: (context, state) {
           return const AdminAddTestScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.adminAddLiveLessonScreen,
+        name: AppRouters.adminAddLiveLessonScreen,
+        builder: (context, state) {
+          return const AdminAddLiveLessonScreen();
+        },
+      ),
+      GoRoute(
+        path: AppRouters.liveLessonsScreen,
+        name: AppRouters.liveLessonsScreen,
+        builder: (context, state) {
+          return const LiveLessonsScreen();
         },
       ),
     ],

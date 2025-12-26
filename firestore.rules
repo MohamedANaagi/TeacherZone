@@ -82,6 +82,26 @@ service cloud.firestore {
              data.completedAt is string &&
              data.answers is map;
     }
+    
+    function isValidLiveLesson(data) {
+      return data.keys().hasAll(['title', 'description', 'meetingLink', 'scheduledTime', 'durationMinutes', 'createdAt', 'adminCode']) &&
+             data.title is string &&
+             data.title.size() > 0 &&
+             data.description is string &&
+             data.description.size() > 0 &&
+             data.meetingLink is string &&
+             data.meetingLink.size() > 0 &&
+             // scheduledTime يجب أن يكون string (ISO 8601)
+             data.scheduledTime is string &&
+             // durationMinutes يجب أن يكون رقم موجب
+             data.durationMinutes is int &&
+             data.durationMinutes > 0 &&
+             data.durationMinutes <= 1440 &&
+             data.createdAt is string &&
+             // التأكد من وجود adminCode
+             data.adminCode is string &&
+             data.adminCode.size() > 0;
+    }
 
     // ==================== Admin Codes Collection ====================
     match /adminCodes/{adminCodeId} {
@@ -228,6 +248,23 @@ service cloud.firestore {
                        request.resource.data.studentCode == resource.data.studentCode &&
                        // منع تغيير completedAt
                        request.resource.data.completedAt == resource.data.completedAt;
+      
+      allow delete: if true; // يمكن تقييد الحذف لاحقاً
+    }
+
+    // ==================== Live Lessons Collection ====================
+    match /liveLessons/{liveLessonId} {
+      // القراءة للجميع (الطلاب يحتاجون رؤية الدروس المباشرة)
+      allow read: if true;
+      
+      // الكتابة - فقط مع البيانات الصحيحة
+      allow create: if isValidLiveLesson(request.resource.data);
+      
+      allow update: if isValidLiveLesson(request.resource.data) &&
+                       // منع تغيير createdAt
+                       request.resource.data.createdAt == resource.data.createdAt &&
+                       // منع تغيير adminCode
+                       request.resource.data.adminCode == resource.data.adminCode;
       
       allow delete: if true; // يمكن تقييد الحذف لاحقاً
     }

@@ -14,4 +14,8 @@ class AppRouters {
   static const String adminAddCourseScreen = '/admin/add-course';
   static const String adminManageVideosScreen = '/admin/manage-videos';
   static const String adminAddTestScreen = '/admin/add-test';
+  static const String adminAddLiveLessonScreen = '/admin/add-live-lesson';
+
+  // Live Lessons routes
+  static const String liveLessonsScreen = '/live-lessons';
 }
